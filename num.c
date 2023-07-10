@@ -12,10 +12,10 @@ struct Num {
 
 Num *num_init(u64 num)
 {
-    Num *n = malloc(sizeof(Num));
-    n->refcount = 1;
-    n->num = num;
-    return n;
+    Num *new = malloc(sizeof(Num));
+    new->refcount = 1;
+    new->num = num;
+    return new;
 }
 
 Num *num_incref(Num *n)

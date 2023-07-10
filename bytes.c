@@ -35,13 +35,13 @@ Bytes *bytes_init(const char *s)
     u32 len = strlen(s);
     u32 cap = round_up_pow_2(len);
 
-    Bytes *b = malloc(sizeof(Bytes) + cap);
-    b->refcount = 1;
-    b->len = len;
-    b->cap = cap;
-    memcpy(b->contents, s, len);
+    Bytes *new = malloc(sizeof(Bytes) + cap);
+    new->refcount = 1;
+    new->len = len;
+    new->cap = cap;
+    memcpy(new->contents, s, len);
 
-    return b;
+    return new;
 }
 
 Bytes *bytes_incref(Bytes *b)
@@ -79,15 +79,15 @@ void bytes_append(Bytes **to, Bytes *from)
         // allocate
         u32 new_cap = round_up_pow_2(new_len);
 
-        Bytes *b = malloc(sizeof(Bytes) + new_cap);
-        b->refcount = 1;
-        b->len = new_len;
-        b->cap = new_cap;
-        memcpy(b->contents, (*to)->contents, (*to)->len);
-        memcpy(&b->contents[(*to)->len], from->contents, from->len);
+        Bytes *new = malloc(sizeof(Bytes) + new_cap);
+        new->refcount = 1;
+        new->len = new_len;
+        new->cap = new_cap;
+        memcpy(new->contents, (*to)->contents, (*to)->len);
+        memcpy(&new->contents[(*to)->len], from->contents, from->len);
 
         bytes_decref(*to);
-        *to = b;
+        *to = new;
     }
 
     bytes_decref(from);
