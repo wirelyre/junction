@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 
     Num *n = num_init(1);
     Num *i = num_init(10);
-    while (num_gt(num_incref(i), num_init(0))) {
+    while (bool_get(num_gt(num_incref(i), num_init(0)))) {
         n = num_mul(n, num_incref(i));
         i = num_sub(i, num_init(1));
     }

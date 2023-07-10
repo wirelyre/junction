@@ -49,12 +49,12 @@ Num *num_mul(Num *lhs, Num *rhs)
     return num_init(res);
 }
 
-bool num_gt(Num *lhs, Num *rhs)
+Bool *num_gt(Num *lhs, Num *rhs)
 {
     bool res = lhs->num > rhs->num;
     num_decref(lhs);
     num_decref(rhs);
-    return res;
+    return bool_init(res);
 }
 
 void num_fmt(Num *n, Bytes **b)
