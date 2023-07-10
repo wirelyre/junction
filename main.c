@@ -1,6 +1,3 @@
-#include <inttypes.h>
-#include <stdio.h>
-
 #include "runtime.h"
 
 int main(int argc, char *argv[])
@@ -33,10 +30,20 @@ int main(int argc, char *argv[])
 
 
 
-    uint64_t i, n;
-    for (n = 1, i = 10; i > 0; i--)
-        n *= i;
-    printf("10! = %"PRIu64"\n", n);
+    // calculate 10 factorial
+
+    Num *n = num_init(1);
+    Num *i = num_init(10);
+    while (num_gt(num_incref(i), num_init(0))) {
+        n = num_mul(n, num_incref(i));
+        i = num_sub(i, num_init(1));
+    }
+    num_decref(i);
+
+    Bytes *b = bytes_init("10! = ");
+    num_fmt(n, &b);
+    bytes_append(&b, bytes_init("\n"));
+    bytes_print(b);
 
     return 0;
 }
