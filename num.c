@@ -5,63 +5,56 @@
 
 // Reference-counted u64.
 
-struct Num {
-    u32 refcount;
+typedef struct Num {
+    Value header;
     u64 num;
-};
+} Num;
 
-Num *num_init(u64 num)
+Value *num_init(u64 num)
 {
     Num *new = malloc(sizeof(Num));
-    new->refcount = 1;
+    new->header.refcount = 1;
+    new->header.tag = 0;
     new->num = num;
-    return new;
+    return (Value *) new;
 }
 
-Num *num_incref(Num *n)
+Value *num_sub(Value *lhs_v, Value *rhs_v)
 {
-    n->refcount++;
-    return n;
-}
-
-void num_decref(Num *n)
-{
-    n->refcount--;
-    if (n->refcount == 0)
-        free(n);
-}
-
-
-
-Num *num_sub(Num *lhs, Num *rhs)
-{
+    Num *lhs = (Num *) lhs_v;
+    Num *rhs = (Num *) rhs_v;
     u64 res = lhs->num - rhs->num;
-    num_decref(lhs);
-    num_decref(rhs);
+    decref(lhs_v);
+    decref(rhs_v);
     return num_init(res);
 }
 
-Num *num_mul(Num *lhs, Num *rhs)
+Value *num_mul(Value *lhs_v, Value *rhs_v)
 {
+    Num *lhs = (Num *) lhs_v;
+    Num *rhs = (Num *) rhs_v;
     u64 res = lhs->num * rhs->num;
-    num_decref(lhs);
-    num_decref(rhs);
+    decref(lhs_v);
+    decref(rhs_v);
     return num_init(res);
 }
 
-Bool *num_gt(Num *lhs, Num *rhs)
+Value *num_gt(Value *lhs_v, Value *rhs_v)
 {
+    Num *lhs = (Num *) lhs_v;
+    Num *rhs = (Num *) rhs_v;
     bool res = lhs->num > rhs->num;
-    num_decref(lhs);
-    num_decref(rhs);
+    decref(lhs_v);
+    decref(rhs_v);
     return bool_init(res);
 }
 
-void num_fmt(Num *n, Bytes **b)
+void num_fmt(Value *n_v, Value **b)
 {
+    Num *n = (Num *) n_v;
     char buf[21] = {0}; // fully zeroed
     sprintf(buf, "%"PRIu64, n->num);
     // the maximum u64 is 18446744073709551615, 20 digits
     bytes_append(b, bytes_init(buf));
-    num_decref(n);
+    decref(n_v);
 }

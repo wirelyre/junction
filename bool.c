@@ -12,38 +12,16 @@ enum BoolTag {
     TAG_True = 2,
 };
 
-struct Bool {
-    u32 refcount;
-    enum BoolTag tag;
-};
-
-Bool *bool_init(bool b)
+Value *bool_init(bool b)
 {
-    Bool *new = malloc(sizeof(Bool));
-    new->refcount = 1;
-    new->tag = b ? TAG_True : TAG_False;
-    return new;
+    u32 tag = b ? TAG_True : TAG_False;
+    return value_alloc(tag);
 }
 
-Bool *bool_incref(Bool *b)
-{
-    b->refcount++;
-    return b;
-}
-
-void bool_decref(Bool *b)
-{
-    b->refcount--;
-    if (b->refcount == 0)
-        free(b);
-}
-
-
-
-bool bool_get(Bool *b)
+bool bool_get(Value *b)
 {
     assert(b->tag == TAG_True || b->tag == TAG_False);
     bool res = b->tag == TAG_True;
-    bool_decref(b);
+    decref(b);
     return res;
 }

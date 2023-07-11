@@ -10,12 +10,12 @@
 // - The array is kept in-line with the metadata.
 //   - So every value involves at most 1 allocation.
 
-struct Bytes {
-    u32 refcount;
+typedef struct Bytes {
+    Value header;
     u32 len; // number of meaningful bytes in `contents`
     u32 cap; // capacity; always 0 or a power of 2
     char contents[];
-};
+} Bytes;
 
 static u32 round_up_pow_2(u32 n)
 {
@@ -30,65 +30,56 @@ static u32 round_up_pow_2(u32 n)
     return n + 1;
 }
 
-Bytes *bytes_init(const char *s)
+Value *bytes_init(const char *s)
 {
     u32 len = strlen(s);
     u32 cap = round_up_pow_2(len);
 
     Bytes *new = malloc(sizeof(Bytes) + cap);
-    new->refcount = 1;
+    new->header.refcount = 1;
+    new->header.tag = 0;
     new->len = len;
     new->cap = cap;
     memcpy(new->contents, s, len);
 
-    return new;
+    return (Value *) new;
 }
 
-Bytes *bytes_incref(Bytes *b)
+void bytes_append(Value **to_v, Value *from_v)
 {
-    b->refcount++;
-    return b;
-}
+    Bytes *to = (Bytes *) *to_v;
+    Bytes *from = (Bytes *) from_v;
 
-void bytes_decref(Bytes *b)
-{
-    b->refcount--;
-    if (b->refcount == 0)
-        free(b);
-}
-
-
-
-void bytes_print(Bytes *b)
-{
-    // print to stdout
-    fwrite(b->contents, 1, b->len, stdout);
-    bytes_decref(b);
-}
-
-void bytes_append(Bytes **to, Bytes *from)
-{
-    u32 new_len = (*to)->len + from->len;
+    u32 new_len = to->len + from->len;
 
     // append in place?
-    if ((*to)->refcount == 1 && new_len <= (*to)->cap) {
-        memcpy(&(*to)->contents[(*to)->len], from->contents, from->len);
-        (*to)->len = new_len;
+    if (to->header.refcount == 1 && new_len <= to->cap) {
+        memcpy(&to->contents[to->len], from->contents, from->len);
+        to->len = new_len;
 
     } else {
         // allocate
         u32 new_cap = round_up_pow_2(new_len);
 
         Bytes *new = malloc(sizeof(Bytes) + new_cap);
-        new->refcount = 1;
+        new->header.refcount = 1;
+        new->header.tag = 0;
         new->len = new_len;
         new->cap = new_cap;
-        memcpy(new->contents, (*to)->contents, (*to)->len);
-        memcpy(&new->contents[(*to)->len], from->contents, from->len);
+        memcpy(new->contents, to->contents, to->len);
+        memcpy(&new->contents[to->len], from->contents, from->len);
 
-        bytes_decref(*to);
-        *to = new;
+        decref(*to_v);
+        *to_v = (Value *) new;
     }
 
-    bytes_decref(from);
+    decref(from_v);
+}
+
+void bytes_print(Value *b_v)
+{
+    // print to stdout
+    Bytes *b = (Bytes *) b_v;
+    fwrite(b->contents, 1, b->len, stdout);
+    decref(b_v);
 }

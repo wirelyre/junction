@@ -6,30 +6,23 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-typedef struct Bool Bool;
+typedef struct Value {
+    u32 refcount;
+    u32 tag;
+} Value;
 
-Bool *bool_init  (bool);
-Bool *bool_incref(Bool *);
-void  bool_decref(Bool *);
+Value *value_alloc(u32 tag);
+Value *incref(Value *);
+void   decref(Value *);
 
-bool bool_get(Bool *);
+Value *bool_init (bool);         // (C bool)   -> Bool
+Value *bytes_init(const char *); // (C string) -> Bytes
+Value *num_init  (u64);          // (u64)      -> Num
+bool   bool_get  (Value *);      // (Bool)     -> C bool
 
-typedef struct Bytes Bytes;
-
-Bytes *bytes_init  (const char *);
-Bytes *bytes_incref(Bytes *);
-void   bytes_decref(Bytes *);
-
-void   bytes_print (Bytes *);
-void   bytes_append(Bytes **, Bytes *);
-
-typedef struct Num Num;
-
-Num *num_init  (u64);
-Num *num_incref(Num *);
-void num_decref(Num *);
-
-Num  *num_sub(Num *, Num *);
-Num  *num_mul(Num *, Num *);
-Bool *num_gt (Num *, Num *);
-void  num_fmt(Num *, Bytes **);
+void   bytes_append(Value **, Value *); // (&Bytes, Bytes)
+void   bytes_print (Value *);           // (Bytes)
+Value *num_sub     (Value *, Value *);  // (Num, Num) -> Num
+Value *num_mul     (Value *, Value *);  // (Num, Num) -> Num
+Value *num_gt      (Value *, Value *);  // (Num, Num) -> Bool
+void   num_fmt     (Value *, Value **); // (Num, &Bytes)
