@@ -4,7 +4,12 @@
 
 Value *value_alloc(VTable *vt, u32 tag)
 {
-    Value *v = malloc(sizeof(Value));
+    return value_alloc_raw(vt, tag, sizeof(Value));
+}
+
+Value *value_alloc_raw(VTable *vt, u32 tag, u32 size)
+{
+    Value *v = malloc(size);
     v->vtable = vt;
     v->refcount = 1;
     v->tag = tag;

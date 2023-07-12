@@ -48,10 +48,7 @@ Value *bytes_init(const char *s)
     u32 len = strlen(s);
     u32 cap = round_up_pow_2(len);
 
-    Bytes *new = malloc(sizeof(Bytes) + cap);
-    new->header.vtable = &vt;
-    new->header.refcount = 1;
-    new->header.tag = Id_Bytes;
+    Bytes *new = (Bytes *) value_alloc_raw(&vt, Id_Bytes, sizeof(Bytes) + cap);
     new->len = len;
     new->cap = cap;
     memcpy(new->contents, s, len);
@@ -76,10 +73,7 @@ Value *bytes_append(Value **self, va_list *ap)
         // allocate
         u32 new_cap = round_up_pow_2(new_len);
 
-        Bytes *new = malloc(sizeof(Bytes) + new_cap);
-        new->header.vtable = &vt;
-        new->header.refcount = 1;
-        new->header.tag = Id_Bytes;
+        Bytes *new = (Bytes *) value_alloc_raw(&vt, Id_Bytes, sizeof(Bytes) + new_cap);
         new->len = new_len;
         new->cap = new_cap;
         memcpy(new->contents, to->contents, to->len);

@@ -26,6 +26,7 @@ struct VTable {
 };
 
 Value *value_alloc(VTable *, u32 tag);
+Value *value_alloc_raw(VTable *, u32 tag, u32 size);
 Value *incref(Value *);
 void   decref(Value *);
 

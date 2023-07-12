@@ -26,10 +26,7 @@ static VTable vt;
 
 Value *num_init(u64 num)
 {
-    Num *new = malloc(sizeof(Num));
-    new->header.vtable = &vt;
-    new->header.refcount = 1;
-    new->header.tag = Id_Number;
+    Num *new = (Num *) value_alloc_raw(&vt, Id_Number, sizeof(Num));
     new->num = num;
     return (Value *) new;
 }
