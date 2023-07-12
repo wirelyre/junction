@@ -1,4 +1,5 @@
 #include "runtime.h"
+#include "identifiers.h"
 
 int main(int argc, char *argv[])
 {
@@ -10,8 +11,8 @@ int main(int argc, char *argv[])
 
     // a `Bytes *` takes ownership; increment the refcount to keep your own copy
     // a `Bytes **` doesn't; it's like a mutable pointer to immutable data
-    bytes_append(&b1, b2); // gives away `b2`
-    bytes_print(b1);       // gives away `b1`
+    method_r(&b1, Id_append, b2); // gives away `b2`
+    method_v(b1, Id_print);       // gives away `b1`
     // now `b1` and `b2` must not be used (in fact, they have been freed)
 
     b1 = bytes_init("hello ");
@@ -19,14 +20,14 @@ int main(int argc, char *argv[])
     // `b1` and `b2` are basically different objects now
     // they will only be modified as an optimization if the refcount is 1
 
-    bytes_append(&b1, incref(b2)); // `b1` and `b2` are kept
-    bytes_append(&b1, incref(b2)); // still kept
-    bytes_append(&b1, b2); // `b2` is gone
+    method_r(&b1, Id_append, incref(b2)); // `b1` and `b2` are kept
+    method_r(&b1, Id_append, incref(b2)); // still kept
+    method_r(&b1, Id_append, b2); // `b2` is gone
 
-    bytes_print(incref(b1)); // `b1` is kept
-    bytes_print(b1); // `b1` is gone
+    method_v(incref(b1), Id_print); // `b1` is kept
+    method_v(b1, Id_print); // `b1` is gone
 
-    bytes_print(bytes_init("\n")); // value is allocated and freed (no leak)
+    method_v(bytes_init("\n"), Id_print); // value is allocated and freed (no leak)
 
 
 
@@ -34,16 +35,16 @@ int main(int argc, char *argv[])
 
     Value *n = num_init(1);  // n: Num
     Value *i = num_init(10); // i: Num
-    while (bool_get(num_gt(incref(i), num_init(0)))) {
-        n = num_mul(n, incref(i));
-        i = num_sub(i, num_init(1));
+    while (bool_get(method_v(incref(i), Id_gt, num_init(0)))) {
+        n = method_v(n, Id_mul, incref(i));
+        i = method_v(i, Id_sub, num_init(1));
     }
     decref(i);
 
     Value *b = bytes_init("10! = "); // b: Bytes
-    num_fmt(n, &b);
-    bytes_append(&b, bytes_init("\n"));
-    bytes_print(b);
+    method_v(n, Id_fmt, &b);
+    method_r(&b, Id_append, bytes_init("\n"));
+    method_v(b, Id_print);
 
     return 0;
 }

@@ -1,5 +1,7 @@
 #include "runtime.h"
+#include "identifiers.h"
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,12 +12,23 @@
 // - The array is kept in-line with the metadata.
 //   - So every value involves at most 1 allocation.
 
+/*
+    type Bytes(...)
+
+    impl Bytes {
+        fn append(^self, other: Bytes) { ... }
+        fn print(self) { ... }
+    }
+ */
+
 typedef struct Bytes {
     Value header;
     u32 len; // number of meaningful bytes in `contents`
     u32 cap; // capacity; always 0 or a power of 2
     char contents[];
 } Bytes;
+
+static VTable vt;
 
 static u32 round_up_pow_2(u32 n)
 {
@@ -36,8 +49,9 @@ Value *bytes_init(const char *s)
     u32 cap = round_up_pow_2(len);
 
     Bytes *new = malloc(sizeof(Bytes) + cap);
+    new->header.vtable = &vt;
     new->header.refcount = 1;
-    new->header.tag = 0;
+    new->header.tag = Id_Bytes;
     new->len = len;
     new->cap = cap;
     memcpy(new->contents, s, len);
@@ -45,10 +59,11 @@ Value *bytes_init(const char *s)
     return (Value *) new;
 }
 
-void bytes_append(Value **to_v, Value *from_v)
+// fn append(^self, other: Bytes)
+Value *bytes_append(Value **self, va_list *ap)
 {
-    Bytes *to = (Bytes *) *to_v;
-    Bytes *from = (Bytes *) from_v;
+    Bytes *to = (Bytes *) *self;
+    Bytes *from = (Bytes *) va_arg(*ap, Value *);
 
     u32 new_len = to->len + from->len;
 
@@ -62,24 +77,37 @@ void bytes_append(Value **to_v, Value *from_v)
         u32 new_cap = round_up_pow_2(new_len);
 
         Bytes *new = malloc(sizeof(Bytes) + new_cap);
+        new->header.vtable = &vt;
         new->header.refcount = 1;
-        new->header.tag = 0;
+        new->header.tag = Id_Bytes;
         new->len = new_len;
         new->cap = new_cap;
         memcpy(new->contents, to->contents, to->len);
         memcpy(&new->contents[to->len], from->contents, from->len);
 
-        decref(*to_v);
-        *to_v = (Value *) new;
+        decref(*self);
+        *self = (Value *) new;
     }
 
-    decref(from_v);
+    decref((Value *) from);
+
+    return NULL;
 }
 
-void bytes_print(Value *b_v)
+// fn print(self)
+Value *bytes_print(Value **self, va_list *ap)
 {
     // print to stdout
-    Bytes *b = (Bytes *) b_v;
+    Bytes *b = (Bytes *) *self;
     fwrite(b->contents, 1, b->len, stdout);
-    decref(b_v);
+    return NULL;
 }
+
+static VTable vt = {
+    .entry_count = 2,
+    .entries = {
+        { .name = Id_append, .m = bytes_append },
+        { .name = Id_print,  .m = bytes_print },
+    },
+};
+

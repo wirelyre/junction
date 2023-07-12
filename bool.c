@@ -1,27 +1,35 @@
 #include "runtime.h"
+#include "identifiers.h"
 
 #include <assert.h>
 #include <stdlib.h>
 
 // Reference-counted bool.
 
-enum BoolTag {
-    // right now, this shouldn't rely on TAG_False == 0 and TAG_True != 0
-    // it might later because that seems like a good idea
-    TAG_False = 1,
-    TAG_True = 2,
-};
+/*
+    type Bool(True | False)
+ */
+
+// right now Id_False is not guaranteed to be 0
+// it could be though
+
+static VTable vt;
 
 Value *bool_init(bool b)
 {
-    u32 tag = b ? TAG_True : TAG_False;
-    return value_alloc(tag);
+    u32 tag = b ? Id_True : Id_False;
+    return value_alloc(&vt, tag);
 }
 
 bool bool_get(Value *b)
 {
-    assert(b->tag == TAG_True || b->tag == TAG_False);
-    bool res = b->tag == TAG_True;
+    assert(b->tag == Id_True || b->tag == Id_False);
+    bool res = b->tag == Id_True;
     decref(b);
     return res;
 }
+
+static VTable vt = {
+    .entry_count = 0,
+    .entries = {},
+};

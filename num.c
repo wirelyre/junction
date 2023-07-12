@@ -1,60 +1,87 @@
 #include "runtime.h"
+#include "identifiers.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
 // Reference-counted u64.
 
+/*
+    type Number(...)
+
+    impl Number (Sub, Mul, Gt, Fmt) {
+        fn sub(self, rhs: Number) -> Number
+        fn mul(self, rhs: Number) -> Number
+        fn gt (self, rhs: Number) -> Bool
+        fn fmt(self, ^b: Bytes)
+    }
+ */
+
 typedef struct Num {
     Value header;
     u64 num;
 } Num;
 
+static VTable vt;
+
 Value *num_init(u64 num)
 {
     Num *new = malloc(sizeof(Num));
+    new->header.vtable = &vt;
     new->header.refcount = 1;
-    new->header.tag = 0;
+    new->header.tag = Id_Number;
     new->num = num;
     return (Value *) new;
 }
 
-Value *num_sub(Value *lhs_v, Value *rhs_v)
+// fn sub(self, rhs: Number) -> Number
+Value *num_sub(Value **self, va_list *l)
 {
-    Num *lhs = (Num *) lhs_v;
-    Num *rhs = (Num *) rhs_v;
+    Num *lhs = (Num *) *self;
+    Num *rhs = (Num *) va_arg(*l, Value *);
     u64 res = lhs->num - rhs->num;
-    decref(lhs_v);
-    decref(rhs_v);
+    decref((Value *) rhs);
     return num_init(res);
 }
 
-Value *num_mul(Value *lhs_v, Value *rhs_v)
+// fn mul(self, rhs: Number) -> Number
+Value *num_mul(Value **self, va_list *l)
 {
-    Num *lhs = (Num *) lhs_v;
-    Num *rhs = (Num *) rhs_v;
+    Num *lhs = (Num *) *self;
+    Num *rhs = (Num *) va_arg(*l, Value *);
     u64 res = lhs->num * rhs->num;
-    decref(lhs_v);
-    decref(rhs_v);
+    decref((Value *) rhs);
     return num_init(res);
 }
 
-Value *num_gt(Value *lhs_v, Value *rhs_v)
+// fn gt(self, rhs: Number) -> Bool
+Value *num_gt(Value **self, va_list *l)
 {
-    Num *lhs = (Num *) lhs_v;
-    Num *rhs = (Num *) rhs_v;
+    Num *lhs = (Num *) *self;
+    Num *rhs = (Num *) va_arg(*l, Value *);
     bool res = lhs->num > rhs->num;
-    decref(lhs_v);
-    decref(rhs_v);
+    decref((Value *) rhs);
     return bool_init(res);
 }
 
-void num_fmt(Value *n_v, Value **b)
+// fn gt(self, ^b: Bytes)
+Value *num_fmt(Value **self, va_list *l)
 {
-    Num *n = (Num *) n_v;
+    Num *n = (Num *) *self;
+    Value **b = va_arg(*l, Value **);
     char buf[21] = {0}; // fully zeroed
     sprintf(buf, "%"PRIu64, n->num);
     // the maximum u64 is 18446744073709551615, 20 digits
-    bytes_append(b, bytes_init(buf));
-    decref(n_v);
+    method_r(b, Id_append, bytes_init(buf));
+    return NULL;
 }
+
+static VTable vt = {
+    .entry_count = 4,
+    .entries = {
+        { .name = Id_sub, .m = num_sub },
+        { .name = Id_mul, .m = num_mul },
+        { .name = Id_gt, .m = num_gt },
+        { .name = Id_fmt, .m = num_fmt },
+    },
+};
