@@ -7,33 +7,48 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-typedef struct VTable VTable;
+typedef struct TypeInfo TypeInfo;
 
 typedef struct Value {
-    VTable *vtable;
+    TypeInfo *info;
     u32 refcount;
-    u32 tag;
+
+    union {
+        struct {
+            u32 len; // number of meaningful bytes in `contents`
+            u32 cap; // capacity; always 0 or a power of 2
+            char contents[];
+        } bytes;
+
+        u64 num;
+
+        struct {
+            u32 tag;
+        } data;
+    };
 } Value;
 
 typedef Value *(*Method)(Value **self, va_list *);
 
-struct VTable {
-    u32 entry_count;
+struct TypeInfo {
+    const char *name;
+    u32 method_count;
     struct {
         u32 name;
         Method m;
-    } entries[];
+    } methods[];
 };
 
-Value *value_alloc(VTable *, u32 tag);
-Value *value_alloc_raw(VTable *, u32 tag, u32 size);
+Value *value_alloc(TypeInfo *, u32 size);
 Value *incref(Value *);
 void   decref(Value *);
 
 Value *method_v(Value *self, u32 name, ...);  // (self, ...) -> ?
 Value *method_r(Value **self, u32 name, ...); // (^self, ...) -> ?
 
-Value *bool_init (bool);         // (C bool)   -> Bool
 Value *bytes_init(const char *); // (C string) -> Bytes
 Value *num_init  (u64);          // (u64)      -> Num
+
 bool   bool_get  (Value *);      // (Bool)     -> C bool
+extern Value TRUE;
+extern Value FALSE;

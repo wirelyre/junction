@@ -10,19 +10,13 @@
     #define DBG(...)
 #endif
 
-Value *value_alloc(VTable *vt, u32 tag)
+Value *value_alloc(TypeInfo *info, u32 size)
 {
-    return value_alloc_raw(vt, tag, sizeof(Value));
-}
-
-Value *value_alloc_raw(VTable *vt, u32 tag, u32 size)
-{
-    Value *v = malloc(size);
-    v->vtable = vt;
-    v->refcount = 1;
-    v->tag = tag;
-    DBG("[alloc  %s: %p]\n", identifiers[v->tag], v);
-    return v;
+    Value *new = malloc(sizeof(Value) + size);
+    new->info = info;
+    new->refcount = 1;
+    DBG("[alloc  %s: %p]\n", info->name, new);
+    return new;
 }
 
 Value *incref(Value *v)
@@ -37,18 +31,18 @@ void decref(Value *v)
     // TODO: if (v == NULL) return;
     v->refcount--;
     if (v->refcount == 0) {
-        DBG("[free   %s: %p]\n", identifiers[v->tag], v);
+        DBG("[free   %s: %p]\n", v->info->name, v);
         free(v);
     }
 }
 
 static Method method_lookup(Value *v, u32 name)
 {
-    VTable *vt = v->vtable;
+    TypeInfo *info = v->info;
 
-    for (u32 i = 0; i < vt->entry_count; i++) {
-        if (vt->entries[i].name == name) {
-            return vt->entries[i].m;
+    for (u32 i = 0; i < info->method_count; i++) {
+        if (info->methods[i].name == name) {
+            return info->methods[i].m;
         }
     }
 
@@ -58,7 +52,7 @@ static Method method_lookup(Value *v, u32 name)
 Value *method_v(Value *self, u32 name, ...)
 {
     DBG("[method %s(self: %s, ...): %p]\n",
-        identifiers[name], identifiers[self->tag], method_lookup(self, name));
+        identifiers[name], self->info->name, method_lookup(self, name));
 
     va_list ap;
     va_start(ap, name);
@@ -72,7 +66,7 @@ Value *method_v(Value *self, u32 name, ...)
 Value *method_r(Value **self, u32 name, ...)
 {
     DBG("[method %s(^self: %s, ...): %p]\n",
-        identifiers[name], identifiers[(*self)->tag], method_lookup(*self, name));
+        identifiers[name], (*self)->info->name, method_lookup(*self, name));
 
     va_list ap;
     va_start(ap, name);

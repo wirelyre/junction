@@ -1,8 +1,8 @@
 #include "runtime.h"
 #include "identifiers.h"
 
+#include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 // Reference-counted u64.
 
@@ -17,54 +17,61 @@
     }
  */
 
-typedef struct Num {
-    Value header;
-    u64 num;
-} Num;
-
-static VTable vt;
+static TypeInfo info;
 
 Value *num_init(u64 num)
 {
-    Num *new = (Num *) value_alloc_raw(&vt, Id_Number, sizeof(Num));
+    Value *new = value_alloc(&info, 0);
     new->num = num;
-    return (Value *) new;
+    return new;
 }
 
 // fn sub(self, rhs: Number) -> Number
-Value *num_sub(Value **self, va_list *l)
+static Value *num_sub(Value **self, va_list *l)
 {
-    Num *lhs = (Num *) *self;
-    Num *rhs = (Num *) va_arg(*l, Value *);
+    Value *lhs = *self;
+    Value *rhs = va_arg(*l, Value *);
+
+    assert(lhs->info == &info);
+    assert(rhs->info == &info);
+
     u64 res = lhs->num - rhs->num;
-    decref((Value *) rhs);
+    decref(rhs);
     return num_init(res);
 }
 
 // fn mul(self, rhs: Number) -> Number
-Value *num_mul(Value **self, va_list *l)
+static Value *num_mul(Value **self, va_list *l)
 {
-    Num *lhs = (Num *) *self;
-    Num *rhs = (Num *) va_arg(*l, Value *);
+    Value *lhs = *self;
+    Value *rhs = va_arg(*l, Value *);
+
+    assert(lhs->info == &info);
+    assert(rhs->info == &info);
+
     u64 res = lhs->num * rhs->num;
-    decref((Value *) rhs);
+    decref(rhs);
     return num_init(res);
 }
 
 // fn gt(self, rhs: Number) -> Bool
-Value *num_gt(Value **self, va_list *l)
+static Value *num_gt(Value **self, va_list *l)
 {
-    Num *lhs = (Num *) *self;
-    Num *rhs = (Num *) va_arg(*l, Value *);
+    Value *lhs = *self;
+    Value *rhs = va_arg(*l, Value *);
+
+    assert(lhs->info == &info);
+    assert(rhs->info == &info);
+
     bool res = lhs->num > rhs->num;
-    decref((Value *) rhs);
-    return bool_init(res);
+    decref(rhs);
+    return res ? incref(&TRUE) : incref(&FALSE);
 }
 
-// fn gt(self, ^b: Bytes)
-Value *num_fmt(Value **self, va_list *l)
+// fn fmt(self, ^b: Bytes)
+static Value *num_fmt(Value **self, va_list *l)
 {
-    Num *n = (Num *) *self;
+    Value *n = *self;
     Value **b = va_arg(*l, Value **);
     char buf[21] = {0}; // fully zeroed
     sprintf(buf, "%"PRIu64, n->num);
@@ -73,9 +80,10 @@ Value *num_fmt(Value **self, va_list *l)
     return NULL;
 }
 
-static VTable vt = {
-    .entry_count = 4,
-    .entries = {
+static TypeInfo info = {
+    .name = "Num",
+    .method_count = 4,
+    .methods = {
         { .name = Id_sub, .m = num_sub },
         { .name = Id_mul, .m = num_mul },
         { .name = Id_gt, .m = num_gt },

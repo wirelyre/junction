@@ -1,8 +1,7 @@
 #include "runtime.h"
 #include "identifiers.h"
 
-#include <stdarg.h>
-#include <stdlib.h>
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -21,14 +20,7 @@
     }
  */
 
-typedef struct Bytes {
-    Value header;
-    u32 len; // number of meaningful bytes in `contents`
-    u32 cap; // capacity; always 0 or a power of 2
-    char contents[];
-} Bytes;
-
-static VTable vt;
+static TypeInfo info;
 
 static u32 round_up_pow_2(u32 n)
 {
@@ -48,36 +40,39 @@ Value *bytes_init(const char *s)
     u32 len = strlen(s);
     u32 cap = round_up_pow_2(len);
 
-    Bytes *new = (Bytes *) value_alloc_raw(&vt, Id_Bytes, sizeof(Bytes) + cap);
-    new->len = len;
-    new->cap = cap;
-    memcpy(new->contents, s, len);
+    Value *new = value_alloc(&info, sizeof(Value) + cap);
+    new->bytes.len = len;
+    new->bytes.cap = cap;
+    memcpy(new->bytes.contents, s, len);
 
     return (Value *) new;
 }
 
 // fn append(^self, other: Bytes)
-Value *bytes_append(Value **self, va_list *ap)
+static Value *bytes_append(Value **self, va_list *ap)
 {
-    Bytes *to = (Bytes *) *self;
-    Bytes *from = (Bytes *) va_arg(*ap, Value *);
+    Value *to = *self;
+    Value *from = va_arg(*ap, Value *);
 
-    u32 new_len = to->len + from->len;
+    assert(to->info == &info);
+    assert(from->info == &info);
+
+    u32 new_len = to->bytes.len + from->bytes.len;
 
     // append in place?
-    if (to->header.refcount == 1 && new_len <= to->cap) {
-        memcpy(&to->contents[to->len], from->contents, from->len);
-        to->len = new_len;
+    if (to->refcount == 1 && new_len <= to->bytes.cap) {
+        memcpy(&to->bytes.contents[to->bytes.len], from->bytes.contents, from->bytes.len);
+        to->bytes.len = new_len;
 
     } else {
         // allocate
         u32 new_cap = round_up_pow_2(new_len);
 
-        Bytes *new = (Bytes *) value_alloc_raw(&vt, Id_Bytes, sizeof(Bytes) + new_cap);
-        new->len = new_len;
-        new->cap = new_cap;
-        memcpy(new->contents, to->contents, to->len);
-        memcpy(&new->contents[to->len], from->contents, from->len);
+        Value *new = value_alloc(&info, sizeof(Value) + new_cap);
+        new->bytes.len = new_len;
+        new->bytes.cap = new_cap;
+        memcpy(new->bytes.contents, to->bytes.contents, to->bytes.len);
+        memcpy(&new->bytes.contents[to->bytes.len], from->bytes.contents, from->bytes.len);
 
         decref(*self);
         *self = (Value *) new;
@@ -89,19 +84,20 @@ Value *bytes_append(Value **self, va_list *ap)
 }
 
 // fn print(self)
-Value *bytes_print(Value **self, va_list *ap)
+static Value *bytes_print(Value **self, va_list *ap)
 {
     // print to stdout
-    Bytes *b = (Bytes *) *self;
-    fwrite(b->contents, 1, b->len, stdout);
+    Value *b = *self;
+    assert(b->info == &info);
+    fwrite(b->bytes.contents, 1, b->bytes.len, stdout);
     return NULL;
 }
 
-static VTable vt = {
-    .entry_count = 2,
-    .entries = {
+static TypeInfo info = {
+    .name = "Bytes",
+    .method_count = 2,
+    .methods = {
         { .name = Id_append, .m = bytes_append },
         { .name = Id_print,  .m = bytes_print },
     },
 };
-
