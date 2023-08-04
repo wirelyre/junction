@@ -1,5 +1,4 @@
 #include "runtime.h"
-#include "identifiers.h"
 
 #include <assert.h>
 
@@ -7,32 +6,21 @@
 
 /*
     type Bool(True | False)
- */
+*/
 
-static TypeInfo info;
-
-bool bool_get(Value *b)
+Object bool_init(bool b)
 {
-    assert(b->info == &info);
-    bool res = b == &TRUE;
-    decref(b);
-    return res;
+    return b ? TRUE : FALSE;
 }
 
-static TypeInfo info = {
+bool bool_get(Object o)
+{
+    assert(o.kind == KIND_FALSE || o.kind == KIND_TRUE);
+    return o.kind == KIND_TRUE;
+}
+
+const struct Module BOOL_MODULE = {
     .name = "Bool",
-    .method_count = 0,
-    .methods = {},
-};
-
-Value TRUE = {
-    .info = &info,
-    .refcount = 1,
-    .data = { .tag = Id_True },
-};
-
-Value FALSE = {
-    .info = &info,
-    .refcount = 1,
-    .data = { .tag = Id_False },
+    .child_count = 0,
+    .children = {},
 };

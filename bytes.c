@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 // - Array of u8.
 //   - (Backed by char[], but the C spec says char is at least u8/i8.)
@@ -18,9 +19,7 @@
         fn append(^self, other: Bytes) { ... }
         fn print(self) { ... }
     }
- */
-
-static TypeInfo info;
+*/
 
 static u32 round_up_pow_2(u32 n)
 {
@@ -35,69 +34,85 @@ static u32 round_up_pow_2(u32 n)
     return n + 1;
 }
 
-Value *bytes_init(const char *s)
+Object bytes_init(const char *s)
 {
     u32 len = strlen(s);
     u32 cap = round_up_pow_2(len);
 
-    Value *new = value_alloc(&info, sizeof(Value) + cap);
-    new->bytes.len = len;
-    new->bytes.cap = cap;
-    memcpy(new->bytes.contents, s, len);
+    struct Bytes *b = malloc(sizeof(struct Bytes) + cap);
+    b->refcount = 1;
+    b->len = len;
+    b->cap = cap;
+    memcpy(b->contents, s, len);
 
-    return (Value *) new;
+    dbg("[alloc Bytes: %p]\n", b);
+
+    struct Object o = {
+        .kind = KIND_BYTES,
+        .bytes = b,
+    };
+    return o;
 }
 
 // fn append(^self, other: Bytes)
-static Value *bytes_append(Value **self, va_list *ap)
+static Object bytes_append(u32 argc, va_list *args)
 {
-    Value *to = *self;
-    Value *from = va_arg(*ap, Value *);
+    assert(argc == 2);
+    Object self = va_arg(*args, Object);
+    Object from_ = va_arg(*args, Object);
+    assert(self.kind == KIND_REF);
+    assert(self.ref->kind == KIND_BYTES);
+    assert(from_.kind == KIND_BYTES);
 
-    assert(to->info == &info);
-    assert(from->info == &info);
+    struct Bytes *to = self.ref->bytes;
+    struct Bytes *from = from_.bytes;
 
-    u32 new_len = to->bytes.len + from->bytes.len;
+    u32 new_len = to->len + from->len;
 
     // append in place?
-    if (to->refcount == 1 && new_len <= to->bytes.cap) {
-        memcpy(&to->bytes.contents[to->bytes.len], from->bytes.contents, from->bytes.len);
-        to->bytes.len = new_len;
+    if (to->refcount == 1 && new_len <= to->cap) {
+        memcpy(&to->contents[to->len], from->contents, from->len);
+        to->len = new_len;
 
     } else {
         // allocate
         u32 new_cap = round_up_pow_2(new_len);
 
-        Value *new = value_alloc(&info, sizeof(Value) + new_cap);
-        new->bytes.len = new_len;
-        new->bytes.cap = new_cap;
-        memcpy(new->bytes.contents, to->bytes.contents, to->bytes.len);
-        memcpy(&new->bytes.contents[to->bytes.len], from->bytes.contents, from->bytes.len);
+        struct Bytes *new = malloc(sizeof(struct Bytes) + new_cap);
+        new->refcount = 1;
+        new->len = new_len;
+        new->cap = new_cap;
+        memcpy(new->contents, to->contents, to->len);
+        memcpy(&new->contents[to->len], from->contents, from->len);
 
-        decref(*self);
-        *self = (Value *) new;
+        dbg("[alloc Bytes: %p]\n", new);
+
+        decref(*self.ref);
+        self.ref->kind = KIND_BYTES;
+        self.ref->bytes = new;
     }
 
-    decref((Value *) from);
+    decref(from_);
 
-    return NULL;
+    return UNIT;
 }
 
 // fn print(self)
-static Value *bytes_print(Value **self, va_list *ap)
+static Object bytes_print(u32 argc, va_list *args)
 {
-    // print to stdout
-    Value *b = *self;
-    assert(b->info == &info);
-    fwrite(b->bytes.contents, 1, b->bytes.len, stdout);
-    return NULL;
+    assert(argc == 1);
+    Object self = va_arg(*args, Object);
+    assert(self.kind == KIND_BYTES);
+    fwrite(self.bytes->contents, 1, self.bytes->len, stdout);
+    decref(self);
+    return UNIT;
 }
 
-static TypeInfo info = {
+const struct Module BYTES_MODULE = {
     .name = "Bytes",
-    .method_count = 2,
-    .methods = {
-        { .name = Id_append, .m = bytes_append },
-        { .name = Id_print,  .m = bytes_print },
+    .child_count = 2,
+    .children = {
+        { .name = Id_append, .f = bytes_append },
+        { .name = Id_print,  .f = bytes_print  },
     },
 };

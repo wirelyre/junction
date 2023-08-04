@@ -18,7 +18,7 @@ enum Identifiers {
     IDENTIFIERS
     #undef T
 
-    ID_LAST, // `ID` different from all `Id_*`
+    ID_COUNT, // `ID` different from all `Id_*`
 };
 
-extern const char *identifiers[ID_LAST];
+extern const char *identifiers[ID_COUNT];

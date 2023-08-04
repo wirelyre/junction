@@ -1,77 +1,162 @@
 #include "runtime.h"
+#include "identifiers.h"
 
+#include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
-#ifdef DEBUG
-    #include "identifiers.h"
-    #include <stdio.h>
-    #define DBG(format, ...) printf("\033[2m"format"\033[0m", __VA_ARGS__)
-#else
-    #define DBG(...)
-#endif
-
-Value *value_alloc(TypeInfo *info, u32 size)
+void dbg(const char *format, ...)
 {
-    Value *new = malloc(sizeof(Value) + size);
-    new->info = info;
-    new->refcount = 1;
-    DBG("[alloc  %s: %p]\n", info->name, new);
-    return new;
+    #ifdef DEBUG
+        fprintf(stderr, "\033[2m");
+
+        va_list args;
+        va_start(args, format);
+        vfprintf(stderr, format, args);
+        va_end(args);
+
+        fprintf(stderr, "\033[0m");
+    #endif
 }
 
-Value *incref(Value *v)
+_Noreturn void fail(const char *error, const char *format, ...)
 {
-    v->refcount++;
-    // TODO: if (v->refcount == 0) panic("reference count overflowed");
-    return v;
+    fprintf(stderr, "\033[0;m");
+    fprintf(stderr, "\033[1;m\033[5;31m%s:\033[0;m ", error);
+
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+
+    fprintf(stderr, "\n");
+    exit(1);
 }
 
-void decref(Value *v)
+const Object UNIT  = { .kind = KIND_UNIT  };
+const Object FALSE = { .kind = KIND_FALSE };
+const Object TRUE  = { .kind = KIND_TRUE  };
+
+Object makeref(Object *o)
 {
-    // TODO: if (v == NULL) return;
-    v->refcount--;
-    if (v->refcount == 0) {
-        DBG("[free   %s: %p]\n", v->info->name, v);
-        free(v);
+    if (o->kind == KIND_REF) fail("makeref", "called on ref");
+    if (o->kind == KIND_MODULE) fail("makeref", "called on module");
+
+    Object ref = {
+        .kind = KIND_REF,
+        .ref = o,
+    };
+    return ref;
+}
+
+Object incref(Object o)
+{
+    switch (o.kind) {
+        case KIND_UNIT:
+        case KIND_FALSE:
+        case KIND_TRUE:
+        case KIND_NUM:
+            break;
+
+        case KIND_REF:
+            fail("incref", "called on ref");
+        case KIND_MODULE:
+            fail("incref", "called on module");
+
+        case KIND_BYTES:
+            o.bytes->refcount++;
+            if (o.bytes->refcount == 0)
+                fail("reference count overflow", "Bytes");
+            break;
+
+        case KIND_DATA:
+            o.data->refcount++;
+            if (o.bytes->refcount == 0)
+                fail("reference count overflow", "%s", o.data->module->name);
+            break;
+    }
+    return o;
+}
+
+void decref(Object o)
+{
+    switch (o.kind) {
+        case KIND_UNIT:
+        case KIND_FALSE:
+        case KIND_TRUE:
+        case KIND_NUM:
+            break;
+
+        case KIND_REF:
+            fail("decref", "called on ref");
+        case KIND_MODULE:
+            fail("decref", "called on module");
+
+        case KIND_BYTES:
+            if (o.bytes->refcount == 0) fail("decref after free", "Bytes");
+            if (--o.bytes->refcount == 0) {
+                dbg("[free Bytes: %p]\n", o.bytes);
+                free(o.bytes);
+            }
+            break;
+
+        case KIND_DATA:
+            if (o.data->refcount == 0) fail("decref after free", "%s", o.data->module->name);
+            if (--o.data->refcount == 0) {
+                dbg("[free %s: %p]\n", o.data->module->name, o.data);
+                free(o.data);
+            }
+            break;
     }
 }
 
-static Method method_lookup(Value *v, u32 name)
+static Function get_method(Object o, u32 name)
 {
-    TypeInfo *info = v->info;
+    if (o.kind == KIND_REF)
+        o = *o.ref;
 
-    for (u32 i = 0; i < info->method_count; i++) {
-        if (info->methods[i].name == name) {
-            return info->methods[i].m;
+    const struct Module *module;
+
+    switch (o.kind) {
+        case KIND_UNIT:  module = &UNIT_MODULE;   break;
+        case KIND_FALSE: module = &BOOL_MODULE;   break;
+        case KIND_TRUE:  module = &BOOL_MODULE;   break;
+        case KIND_NUM:   module = &NUM_MODULE;    break;
+        case KIND_BYTES: module = &BYTES_MODULE;  break;
+        case KIND_DATA:  module = o.data->module; break;
+
+        case KIND_REF:    fail("method lookup", "called on ref to ref");
+        case KIND_MODULE: fail("method lookup", "called on module");
+    }
+
+    for (u32 i = 0; i < module->child_count; i++) {
+        if (module->children[i].name == name) {
+            dbg("[method %s.%s]\n", module->name, identifiers[name]);
+            return module->children[i].f;
         }
     }
 
-    return NULL;
+    fail("no such method", "%s.%s", module->name, identifiers[name]);
 }
 
-Value *method_v(Value *self, u32 name, ...)
+Object method(u32 name, u32 argc, ...)
 {
-    DBG("[method %s(self: %s, ...): %p]\n",
-        identifiers[name], self->info->name, method_lookup(self, name));
+    va_list args;
 
-    va_list ap;
-    va_start(ap, name);
-    Value *res = method_lookup(self, name)(&self, &ap);
-    va_end(ap);
+    assert(argc >= 1);
+    va_start(args, argc);
+    Object receiver = va_arg(args, Object);
+    va_end(args);
 
-    decref(self);
-    return res;
+    va_start(args, argc);
+    Object ret = get_method(receiver, name)(argc, &args);
+    va_end(args);
+
+    return ret;
 }
 
-Value *method_r(Value **self, u32 name, ...)
-{
-    DBG("[method %s(^self: %s, ...): %p]\n",
-        identifiers[name], (*self)->info->name, method_lookup(*self, name));
-
-    va_list ap;
-    va_start(ap, name);
-    Value *res = method_lookup(*self, name)(self, &ap);
-    va_end(ap);
-
-    return res;
-}
+const struct Module UNIT_MODULE = {
+    .name = "Unit",
+    .child_count = 0,
+    .children = {},
+};
