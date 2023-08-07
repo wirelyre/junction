@@ -1,4 +1,8 @@
 #define IDENTIFIERS \
+    T(Array)  \
+    T(get)    \
+    T(set)    \
+              \
     T(Bool)   \
     T(True)   \
     T(False)  \

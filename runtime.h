@@ -23,10 +23,11 @@ Object makeref(Object *);
 Object incref(Object);
 void   decref(Object);
 
-Object bytes_init(const char *); // (C string) -> Bytes
-Object num_init  (u64);          // (u64)      -> Num
-Object bool_init (bool);         // (C bool)   -> Bool
-bool   bool_get  (Object);       // (Bool)     -> C bool
+Object array_init(u16 len, Object el); // (...) -> Array
+Object bytes_init(const char *);  // (C string) -> Bytes
+Object num_init  (u64);           // (u64)      -> Num
+Object bool_init (bool);          // (C bool)   -> Bool
+bool   bool_get  (Object);        // (Bool)     -> C bool
 
 #define method(NAME, ...) _method(NAME, VA_ARGC(__VA_ARGS__), __VA_ARGS__)
 Object _method(u32 name, u32 argc, ...); // first vararg is the method receiver
@@ -41,6 +42,7 @@ struct Object {
         KIND_FALSE,
         KIND_TRUE,
         KIND_NUM,
+        KIND_ARRAY,
         KIND_BYTES,
         KIND_DATA,
         KIND_REF,
@@ -49,11 +51,18 @@ struct Object {
 
     union {
         u64 num;
+        struct Array  *array;
         struct Bytes  *bytes;
         struct Data   *data;
         struct Object *ref;
         const struct Module *module;
     };
+};
+
+struct Array {
+    u32 refcount;
+    u16 len;
+    Object contents[];
 };
 
 struct Bytes {
@@ -78,6 +87,7 @@ struct Module {
     } children[];
 };
 
+extern const struct Module ARRAY_MODULE;
 extern const struct Module BOOL_MODULE;
 extern const struct Module BYTES_MODULE;
 extern const struct Module NUM_MODULE;

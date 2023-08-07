@@ -46,5 +46,43 @@ int main(int argc, char *argv[])
     method(Id_append, makeref(&b), bytes_init("\n"));
     method(Id_print, b);
 
+
+
+    // find maximum of list
+
+    // This is not the proper way to initialize an array (it's not type safe),
+    // but it will give an error below if it's not fully initialized, which is
+    // a useful check for this implementation right now.
+    Object arr = array_init(5, UNIT); // arr: Array[Unit]
+    Object arr2 = incref(arr);        // arr2: Array[Unit]
+    method(Id_set, makeref(&arr), num_init(0), num_init(3));
+    method(Id_set, makeref(&arr), num_init(1), num_init(1));
+    method(Id_set, makeref(&arr), num_init(2), num_init(2));
+    method(Id_set, makeref(&arr), num_init(3), num_init(9));
+    method(Id_set, makeref(&arr), num_init(4), num_init(3));
+    // now arr: Array[Num]
+
+    Object max = num_init(0);
+    i = num_init(5);
+    while(bool_get(method(Id_gt, incref(i), num_init(0)))) {
+        i = method(Id_sub, i, num_init(1));
+        n = method(Id_get, incref(arr), incref(i));
+
+        if (bool_get(method(Id_gt, incref(n), incref(max)))) {
+            decref(max);
+            max = n;
+        } else {
+            decref(n);
+        }
+    }
+    decref(i);
+    decref(arr);
+    decref(arr2);
+
+    b = bytes_init("max[3, 1, 2, 9, 3] = ");
+    method(Id_fmt, max, makeref(&b));
+    method(Id_append, makeref(&b), bytes_init("\n"));
+    method(Id_print, b);
+
     return 0;
 }

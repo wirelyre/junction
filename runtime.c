@@ -63,6 +63,12 @@ Object incref(Object o)
         case KIND_MODULE:
             fail("incref", "called on module");
 
+        case KIND_ARRAY:
+            o.array->refcount++;
+            if (o.array->refcount == 0)
+                fail("reference count overflow", "Array");
+            break;
+
         case KIND_BYTES:
             o.bytes->refcount++;
             if (o.bytes->refcount == 0)
@@ -91,6 +97,14 @@ void decref(Object o)
             fail("decref", "called on ref");
         case KIND_MODULE:
             fail("decref", "called on module");
+
+        case KIND_ARRAY:
+            if (o.array->refcount == 0) fail("decref after free", "Array");
+            if (--o.array->refcount == 0) {
+                dbg("[free Array: %p]\n", o.array);
+                free(o.array);
+            }
+            break;
 
         case KIND_BYTES:
             if (o.bytes->refcount == 0) fail("decref after free", "Bytes");
@@ -122,6 +136,7 @@ static Function get_method(Object o, u32 name)
         case KIND_FALSE: module = &BOOL_MODULE;   break;
         case KIND_TRUE:  module = &BOOL_MODULE;   break;
         case KIND_NUM:   module = &NUM_MODULE;    break;
+        case KIND_ARRAY: module = &ARRAY_MODULE;  break;
         case KIND_BYTES: module = &BYTES_MODULE;  break;
         case KIND_DATA:  module = o.data->module; break;
 
