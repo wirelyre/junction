@@ -89,7 +89,7 @@ static Object num_fmt(u32 argc, va_list *args)
     char buf[21] = {0}; // fully zeroed
     sprintf(buf, "%"PRIu64, n.num);
     // the maximum u64 is 18446744073709551615, 20 digits
-    method(Id_append, 2, b, bytes_init(buf));
+    method(Id_append, b, bytes_init(buf));
 
     // decref(n)
     return UNIT;

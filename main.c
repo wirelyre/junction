@@ -11,8 +11,8 @@ int main(int argc, char *argv[])
 
     // a `Bytes *` takes ownership; increment the refcount to keep your own copy
     // a `Bytes **` doesn't; it's like a mutable pointer to immutable data
-    method(Id_append, 2, makeref(&b1), b2); // gives away `b2`
-    method(Id_print, 1, b1);                // gives away `b1`
+    method(Id_append, makeref(&b1), b2); // gives away `b2`
+    method(Id_print, b1);                // gives away `b1`
     // now `b1` and `b2` must not be used (in fact, they have been freed)
 
     b1 = bytes_init("hello ");
@@ -20,14 +20,14 @@ int main(int argc, char *argv[])
     // `b1` and `b2` are basically different objects now
     // they will only be modified as an optimization if the refcount is 1
 
-    method(Id_append, 2, makeref(&b1), incref(b2)); // `b1` and `b2` are kept
-    method(Id_append, 2, makeref(&b1), incref(b2)); // still kept
-    method(Id_append, 2, makeref(&b1), b2); // `b2` is gone
+    method(Id_append, makeref(&b1), incref(b2)); // `b1` and `b2` are kept
+    method(Id_append, makeref(&b1), incref(b2)); // still kept
+    method(Id_append, makeref(&b1), b2); // `b2` is gone
 
-    method(Id_print, 1, incref(b1)); // `b1` is kept
-    method(Id_print, 1, b1); // `b1` is gone
+    method(Id_print, incref(b1)); // `b1` is kept
+    method(Id_print, b1); // `b1` is gone
 
-    method(Id_print, 1, bytes_init("\n")); // value is allocated and freed (no leak)
+    method(Id_print, bytes_init("\n")); // value is allocated and freed (no leak)
 
 
 
@@ -35,16 +35,16 @@ int main(int argc, char *argv[])
 
     Object n = num_init(1);  // n: Num
     Object i = num_init(10); // i: Num
-    while (bool_get(method(Id_gt, 2, incref(i), num_init(0)))) {
-        n = method(Id_mul, 2, n, incref(i));
-        i = method(Id_sub, 2, i, num_init(1));
+    while (bool_get(method(Id_gt, incref(i), num_init(0)))) {
+        n = method(Id_mul, n, incref(i));
+        i = method(Id_sub, i, num_init(1));
     }
     decref(i);
 
     Object b = bytes_init("10! = "); // b: Bytes
-    method(Id_fmt, 2, n, makeref(&b));
-    method(Id_append, 2, makeref(&b), bytes_init("\n"));
-    method(Id_print, 1, b);
+    method(Id_fmt, n, makeref(&b));
+    method(Id_append, makeref(&b), bytes_init("\n"));
+    method(Id_print, b);
 
     return 0;
 }

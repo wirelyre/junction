@@ -139,7 +139,7 @@ static Function get_method(Object o, u32 name)
     fail("no such method", "%s.%s", module->name, identifiers[name]);
 }
 
-Object method(u32 name, u32 argc, ...)
+Object _method(u32 name, u32 argc, ...)
 {
     va_list args;
 
