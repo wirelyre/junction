@@ -34,6 +34,12 @@ Object _method(u32 name, u32 argc, ...); // first vararg is the method receiver
 #define VA_ARGC(...) VA_ARGC_(__VA_ARGS__, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
 #define VA_ARGC_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, N, ...) N
 
+#define FN(name) Object name(u32 argc, va_list *args)
+
+Object arg_kind    (va_list *, u8);
+Object arg_ref_kind(va_list *, u8);
+Object arg_val     (va_list *);
+
 
 
 struct Object {

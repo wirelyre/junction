@@ -170,6 +170,27 @@ Object _method(u32 name, u32 argc, ...)
     return ret;
 }
 
+Object arg_kind(va_list *l, u8 kind)
+{
+    Object o = va_arg(*l, Object);
+    assert(o.kind == kind);
+    return o;
+}
+
+Object arg_ref_kind(va_list *l, u8 kind)
+{
+    Object o = va_arg(*l, Object);
+    assert(o.kind == KIND_REF && o.ref->kind == kind);
+    return o;
+}
+
+Object arg_val(va_list *l)
+{
+    Object o = va_arg(*l, Object);
+    assert(o.kind != KIND_REF && o.kind != KIND_MODULE);
+    return o;
+}
+
 const struct Module UNIT_MODULE = {
     .name = "Unit",
     .child_count = 0,

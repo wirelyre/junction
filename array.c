@@ -58,13 +58,11 @@ static struct Array *array_dup(struct Array *old)
 }
 
 // fn get(self, idx: Num): T
-static Object array_get(u32 argc, va_list *args)
+static FN(array_get)
 {
     assert(argc == 2);
-    Object self = va_arg(*args, Object);
-    Object idx = va_arg(*args, Object);
-    assert(self.kind == KIND_ARRAY);
-    assert(idx.kind == KIND_NUM);
+    Object self = arg_kind(args, KIND_ARRAY); // self: Array[T]
+    Object idx = arg_kind(args, KIND_NUM);    // idx: Num
 
     assert(idx.num < self.array->len);
 
@@ -75,16 +73,12 @@ static Object array_get(u32 argc, va_list *args)
 }
 
 // fn set(^self, idx: Num, val: T)
-static Object array_set(u32 argc, va_list *args)
+static FN(array_set)
 {
     assert(argc == 3);
-    Object self = va_arg(*args, Object);
-    Object idx = va_arg(*args, Object);
-    Object val = va_arg(*args, Object);
-    assert(self.kind == KIND_REF);
-    assert(self.ref->kind == KIND_ARRAY);
-    assert(idx.kind == KIND_NUM);
-    assert(val.kind != KIND_REF && val.kind != KIND_MODULE);
+    Object self = arg_ref_kind(args, KIND_ARRAY); // ^self: Array[T]
+    Object idx = arg_kind(args, KIND_NUM);        // idx: Num
+    Object val = arg_val(args);                   // val: (any)
 
     assert(idx.num < self.ref->array->len);
 

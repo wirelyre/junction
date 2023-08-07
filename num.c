@@ -27,13 +27,11 @@ Object num_init(u64 num)
 }
 
 // fn sub(self, rhs: Num) -> Num
-static Object num_sub(u32 argc, va_list *args)
+static FN(num_sub)
 {
     assert(argc == 2);
-    Object lhs = va_arg(*args, Object);
-    Object rhs = va_arg(*args, Object);
-    assert(lhs.kind == KIND_NUM);
-    assert(rhs.kind == KIND_NUM);
+    Object lhs = arg_kind(args, KIND_NUM); // lhs: Num
+    Object rhs = arg_kind(args, KIND_NUM); // rhs: Num
 
     Object ret = {
         .kind = KIND_NUM,
@@ -45,13 +43,11 @@ static Object num_sub(u32 argc, va_list *args)
 }
 
 // fn mul(self, rhs: Num) -> Num
-static Object num_mul(u32 argc, va_list *args)
+static FN(num_mul)
 {
     assert(argc == 2);
-    Object lhs = va_arg(*args, Object);
-    Object rhs = va_arg(*args, Object);
-    assert(lhs.kind == KIND_NUM);
-    assert(rhs.kind == KIND_NUM);
+    Object lhs = arg_kind(args, KIND_NUM); // lhs: Num
+    Object rhs = arg_kind(args, KIND_NUM); // rhs: Num
 
     Object ret = {
         .kind = KIND_NUM,
@@ -63,13 +59,11 @@ static Object num_mul(u32 argc, va_list *args)
 }
 
 // fn gt(self, rhs: Num) -> Bool
-static Object num_gt(u32 argc, va_list *args)
+static FN(num_gt)
 {
     assert(argc == 2);
-    Object lhs = va_arg(*args, Object);
-    Object rhs = va_arg(*args, Object);
-    assert(lhs.kind == KIND_NUM);
-    assert(rhs.kind == KIND_NUM);
+    Object lhs = arg_kind(args, KIND_NUM); // lhs: Num
+    Object rhs = arg_kind(args, KIND_NUM); // rhs: Num
 
     // decref(lhs);
     // decref(rhs);
@@ -77,14 +71,11 @@ static Object num_gt(u32 argc, va_list *args)
 }
 
 // fn fmt(self, ^b: Bytes)
-static Object num_fmt(u32 argc, va_list *args)
+static FN(num_fmt)
 {
     assert(argc == 2);
-    Object n = va_arg(*args, Object);
-    Object b = va_arg(*args, Object);
-    assert(n.kind == KIND_NUM);
-    assert(b.kind == KIND_REF);
-    assert(b.ref->kind == KIND_BYTES);
+    Object n = arg_kind(args, KIND_NUM);       // n: Num
+    Object b = arg_ref_kind(args, KIND_BYTES); // ^b: Bytes
 
     char buf[21] = {0}; // fully zeroed
     sprintf(buf, "%"PRIu64, n.num);

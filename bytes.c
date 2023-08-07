@@ -55,14 +55,11 @@ Object bytes_init(const char *s)
 }
 
 // fn append(^self, other: Bytes)
-static Object bytes_append(u32 argc, va_list *args)
+static FN(bytes_append)
 {
     assert(argc == 2);
-    Object self = va_arg(*args, Object);
-    Object from_ = va_arg(*args, Object);
-    assert(self.kind == KIND_REF);
-    assert(self.ref->kind == KIND_BYTES);
-    assert(from_.kind == KIND_BYTES);
+    Object self = arg_ref_kind(args, KIND_BYTES); // self: Bytes
+    Object from_ = arg_kind(args, KIND_BYTES);    // from_: Bytes
 
     struct Bytes *to = self.ref->bytes;
     struct Bytes *from = from_.bytes;
@@ -98,11 +95,10 @@ static Object bytes_append(u32 argc, va_list *args)
 }
 
 // fn print(self)
-static Object bytes_print(u32 argc, va_list *args)
+static FN(bytes_print)
 {
     assert(argc == 1);
-    Object self = va_arg(*args, Object);
-    assert(self.kind == KIND_BYTES);
+    Object self = arg_kind(args, KIND_BYTES); // self: Bytes
     fwrite(self.bytes->contents, 1, self.bytes->len, stdout);
     decref(self);
     return UNIT;
