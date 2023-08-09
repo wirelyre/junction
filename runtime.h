@@ -16,8 +16,6 @@ typedef struct Object Object;
 typedef Object (*Function)(u32 argc, va_list *);
 
 extern const Object UNIT;
-extern const Object FALSE;
-extern const Object TRUE;
 
 Object makeref(Object *);
 Object incref(Object);
@@ -44,9 +42,7 @@ Object arg_val     (va_list *);
 
 struct Object {
     enum {
-        KIND_UNIT,
-        KIND_FALSE,
-        KIND_TRUE,
+        KIND_GLOBAL,
         KIND_NUM,
         KIND_ARRAY,
         KIND_BYTES,
@@ -61,6 +57,7 @@ struct Object {
         struct Bytes  *bytes;
         struct Data   *data;
         struct Object *ref;
+        const struct Data   *global;
         const struct Module *module;
     };
 };
@@ -94,7 +91,5 @@ struct Module {
 };
 
 extern const struct Module ARRAY_MODULE;
-extern const struct Module BOOL_MODULE;
 extern const struct Module BYTES_MODULE;
 extern const struct Module NUM_MODULE;
-extern const struct Module UNIT_MODULE;

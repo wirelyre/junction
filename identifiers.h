@@ -16,6 +16,8 @@
     T(mul)    \
     T(gt)     \
     T(fmt)    \
+              \
+    T(Unit)
 
 enum Identifiers {
     #define T(i) Id_##i,

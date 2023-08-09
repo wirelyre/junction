@@ -33,10 +33,6 @@ _Noreturn void fail(const char *error, const char *format, ...)
     exit(1);
 }
 
-const Object UNIT  = { .kind = KIND_UNIT  };
-const Object FALSE = { .kind = KIND_FALSE };
-const Object TRUE  = { .kind = KIND_TRUE  };
-
 Object makeref(Object *o)
 {
     if (o->kind == KIND_REF) fail("makeref", "called on ref");
@@ -52,9 +48,7 @@ Object makeref(Object *o)
 Object incref(Object o)
 {
     switch (o.kind) {
-        case KIND_UNIT:
-        case KIND_FALSE:
-        case KIND_TRUE:
+        case KIND_GLOBAL:
         case KIND_NUM:
             break;
 
@@ -87,9 +81,7 @@ Object incref(Object o)
 void decref(Object o)
 {
     switch (o.kind) {
-        case KIND_UNIT:
-        case KIND_FALSE:
-        case KIND_TRUE:
+        case KIND_GLOBAL:
         case KIND_NUM:
             break;
 
@@ -132,13 +124,11 @@ static Function get_method(Object o, u32 name)
     const struct Module *module;
 
     switch (o.kind) {
-        case KIND_UNIT:  module = &UNIT_MODULE;   break;
-        case KIND_FALSE: module = &BOOL_MODULE;   break;
-        case KIND_TRUE:  module = &BOOL_MODULE;   break;
-        case KIND_NUM:   module = &NUM_MODULE;    break;
-        case KIND_ARRAY: module = &ARRAY_MODULE;  break;
-        case KIND_BYTES: module = &BYTES_MODULE;  break;
-        case KIND_DATA:  module = o.data->module; break;
+        case KIND_GLOBAL: module = o.global->module; break;
+        case KIND_NUM:    module = &NUM_MODULE;      break;
+        case KIND_ARRAY:  module = &ARRAY_MODULE;    break;
+        case KIND_BYTES:  module = &BYTES_MODULE;    break;
+        case KIND_DATA:   module = o.data->module;   break;
 
         case KIND_REF:    fail("method lookup", "called on ref to ref");
         case KIND_MODULE: fail("method lookup", "called on module");
@@ -190,9 +180,3 @@ Object arg_val(va_list *l)
     assert(o.kind != KIND_REF && o.kind != KIND_MODULE);
     return o;
 }
-
-const struct Module UNIT_MODULE = {
-    .name = "Unit",
-    .child_count = 0,
-    .children = {},
-};
