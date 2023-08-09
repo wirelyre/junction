@@ -12,8 +12,14 @@
     T(print)  \
               \
     T(Number) \
+    T(add)    \
     T(sub)    \
     T(mul)    \
+    T(div)    \
+    T(not)    \
+    T(and)    \
+    T(or)     \
+    T(xor)    \
     T(gt)     \
     T(fmt)    \
               \
