@@ -32,7 +32,15 @@ Object _method(u32 name, u32 argc, ...); // first vararg is the method receiver
 #define VA_ARGC(...) VA_ARGC_(__VA_ARGS__, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
 #define VA_ARGC_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, N, ...) N
 
-#define FN(name) Object name(u32 argc, va_list *args)
+#define FN(fn_name, id)                    \
+    static Object fn_name(u32, va_list *); \
+    static struct Module mod_##fn_name = { \
+        .name = id,                        \
+        .function = fn_name,               \
+        .child_count = 0,                  \
+    };                                     \
+    static Object fn_name(u32 argc, va_list *args)
+#define FN_OBJ(fn_name) { .kind = KIND_MODULE, .module = &mod_##fn_name }
 
 Object arg_kind    (va_list *, u8);
 Object arg_ref_kind(va_list *, u8);
@@ -83,10 +91,11 @@ struct Data {
 
 struct Module {
     const char *name;
+    Function function;
     u32 child_count;
     struct {
         u32 name;
-        Function f;
+        Object obj; // only KIND_MODULE and KIND_GLOBAL allowed
     } children[];
 };
 

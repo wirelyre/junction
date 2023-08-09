@@ -137,7 +137,12 @@ static Function get_method(Object o, u32 name)
     for (u32 i = 0; i < module->child_count; i++) {
         if (module->children[i].name == name) {
             dbg("[method %s.%s]\n", module->name, identifiers[name]);
-            return module->children[i].f;
+            Object child = module->children[i].obj;
+
+            if (child.kind != KIND_MODULE || child.module->function == NULL)
+                fail("not callable", "%s.%s", module->name, identifiers[name]);
+
+            return child.module->function;
         }
     }
 

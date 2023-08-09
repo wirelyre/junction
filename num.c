@@ -27,7 +27,7 @@ Object num_init(u64 num)
 }
 
 // fn sub(self, rhs: Num) -> Num
-static FN(num_sub)
+FN(num_sub, "Num.sub")
 {
     assert(argc == 2);
     Object lhs = arg_kind(args, KIND_NUM); // lhs: Num
@@ -43,7 +43,7 @@ static FN(num_sub)
 }
 
 // fn mul(self, rhs: Num) -> Num
-static FN(num_mul)
+FN(num_mul, "Num.mul")
 {
     assert(argc == 2);
     Object lhs = arg_kind(args, KIND_NUM); // lhs: Num
@@ -59,7 +59,7 @@ static FN(num_mul)
 }
 
 // fn gt(self, rhs: Num) -> Bool
-static FN(num_gt)
+FN(num_gt, "Num.gt")
 {
     assert(argc == 2);
     Object lhs = arg_kind(args, KIND_NUM); // lhs: Num
@@ -71,7 +71,7 @@ static FN(num_gt)
 }
 
 // fn fmt(self, ^b: Bytes)
-static FN(num_fmt)
+FN(num_fmt, "Num.fmt")
 {
     assert(argc == 2);
     Object n = arg_kind(args, KIND_NUM);       // n: Num
@@ -90,9 +90,9 @@ const struct Module NUM_MODULE = {
     .name = "Num",
     .child_count = 4,
     .children = {
-        { .name = Id_sub, .f = num_sub },
-        { .name = Id_mul, .f = num_mul },
-        { .name = Id_gt,  .f = num_gt  },
-        { .name = Id_fmt, .f = num_fmt },
+        { .name = Id_sub, .obj = FN_OBJ(num_sub) },
+        { .name = Id_mul, .obj = FN_OBJ(num_mul) },
+        { .name = Id_gt,  .obj = FN_OBJ(num_gt)  },
+        { .name = Id_fmt, .obj = FN_OBJ(num_fmt) },
     },
 };

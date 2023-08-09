@@ -55,7 +55,7 @@ Object bytes_init(const char *s)
 }
 
 // fn append(^self, other: Bytes)
-static FN(bytes_append)
+FN(bytes_append, "Bytes.append")
 {
     assert(argc == 2);
     Object self = arg_ref_kind(args, KIND_BYTES); // self: Bytes
@@ -95,7 +95,7 @@ static FN(bytes_append)
 }
 
 // fn print(self)
-static FN(bytes_print)
+FN(bytes_print, "Bytes.print")
 {
     assert(argc == 1);
     Object self = arg_kind(args, KIND_BYTES); // self: Bytes
@@ -108,7 +108,7 @@ const struct Module BYTES_MODULE = {
     .name = "Bytes",
     .child_count = 2,
     .children = {
-        { .name = Id_append, .f = bytes_append },
-        { .name = Id_print,  .f = bytes_print  },
+        { .name = Id_append, .obj = FN_OBJ(bytes_append) },
+        { .name = Id_print,  .obj = FN_OBJ(bytes_print)  },
     },
 };

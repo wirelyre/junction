@@ -58,7 +58,7 @@ static struct Array *array_dup(struct Array *old)
 }
 
 // fn get(self, idx: Num): T
-static FN(array_get)
+FN(array_get, "Array.get")
 {
     assert(argc == 2);
     Object self = arg_kind(args, KIND_ARRAY); // self: Array[T]
@@ -73,7 +73,7 @@ static FN(array_get)
 }
 
 // fn set(^self, idx: Num, val: T)
-static FN(array_set)
+FN(array_set, "Array.set")
 {
     assert(argc == 3);
     Object self = arg_ref_kind(args, KIND_ARRAY); // ^self: Array[T]
@@ -101,7 +101,7 @@ const struct Module ARRAY_MODULE = {
     .name = "Array",
     .child_count = 2,
     .children = {
-        { .name = Id_get, .f = array_get },
-        { .name = Id_set, .f = array_set },
+        { .name = Id_get, .obj = FN_OBJ(array_get) },
+        { .name = Id_set, .obj = FN_OBJ(array_set) },
     },
 };
