@@ -29,10 +29,46 @@ bool bool_get(Object o)
     return o.global->tag == Id_True;
 }
 
+FN(bool_not, "Bool.not")
+{
+    assert(argc == 1);
+    Object self = arg_val(args);
+    return bool_init(!bool_get(self));
+}
+
+FN(bool_and, "Bool.and")
+{
+    assert(argc == 2);
+    Object lhs = arg_val(args);
+    Object rhs = arg_val(args);
+    return bool_init(bool_get(lhs) & bool_get(rhs));
+}
+
+FN(bool_or, "Bool.or")
+{
+    assert(argc == 2);
+    Object lhs = arg_val(args);
+    Object rhs = arg_val(args);
+    return bool_init(bool_get(lhs) | bool_get(rhs));
+}
+
+FN(bool_xor, "Bool.xor")
+{
+    assert(argc == 2);
+    Object lhs = arg_val(args);
+    Object rhs = arg_val(args);
+    return bool_init(bool_get(lhs) ^ bool_get(rhs));
+}
+
 static const struct Module BOOL_MODULE = {
     .name = "Bool",
-    .child_count = 0,
-    .children = {},
+    .child_count = 4,
+    .children = {
+        { .name = Id_not, .obj = FN_OBJ(bool_not) },
+        { .name = Id_and, .obj = FN_OBJ(bool_and) },
+        { .name = Id_or,  .obj = FN_OBJ(bool_or)  },
+        { .name = Id_xor, .obj = FN_OBJ(bool_xor) },
+    },
 };
 
 static const struct Data TRUE_DATA = {
