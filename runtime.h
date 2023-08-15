@@ -12,51 +12,26 @@ _Noreturn void fail(const char *error, const char *format, ...);
 
 
 
-typedef struct Object Object;
-typedef Object (*Function)(u32 argc, va_list *);
+typedef struct Object {
+    // Any object --- anything that can have a name in source code:
+    //   - Values (things which can be stored in variables)
+    //   - References (created upon entering a function)
+    //   - Modules (non-values accessible from the global namespace)
+    // These share a type in C to make things a little more fool-proof.
 
-extern const Object UNIT;
-
-Object makeref(Object *);
-Object incref(Object);
-void   decref(Object);
-
-Object array_init(u16 len, Object el); // (...) -> Array
-Object bytes_init(const char *);  // (C string) -> Bytes
-Object num_init  (u64);           // (u64)      -> Num
-Object bool_init (bool);          // (C bool)   -> Bool
-bool   bool_get  (Object);        // (Bool)     -> C bool
-
-#define method(NAME, ...) _method(NAME, VA_ARGC(__VA_ARGS__), __VA_ARGS__)
-Object _method(u32 name, u32 argc, ...); // first vararg is the method receiver
-#define VA_ARGC(...) VA_ARGC_(__VA_ARGS__, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
-#define VA_ARGC_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, N, ...) N
-
-#define FN(fn_name, id)                    \
-    static Object fn_name(u32, va_list *); \
-    static struct Module mod_##fn_name = { \
-        .name = id,                        \
-        .function = fn_name,               \
-        .child_count = 0,                  \
-    };                                     \
-    static Object fn_name(u32 argc, va_list *args)
-#define FN_OBJ(fn_name) { .kind = KIND_MODULE, .module = &mod_##fn_name }
-
-Object arg_kind    (va_list *, u8);
-Object arg_ref_kind(va_list *, u8);
-Object arg_val     (va_list *);
-
-
-
-struct Object {
     enum {
-        KIND_GLOBAL,
-        KIND_NUM,
-        KIND_ARRAY,
-        KIND_BYTES,
-        KIND_DATA,
-        KIND_REF,
-        KIND_MODULE,
+        // Heap-allocated values
+        KIND_ARRAY,  // fixed-size array of values
+        KIND_BYTES,  // flexible-size byte sequence
+        KIND_DATA,   // generalized struct / enum with optional fields
+
+        // Non-heap-allocated values
+        KIND_GLOBAL, // globally constant data
+        KIND_NUM,    // 64-bit unsigned integer
+
+        // Non-values
+        KIND_MODULE, // objects and functions in the global namespace
+        KIND_REF,    // reference to a variable in a higher stack frame
     } kind;
 
     union {
@@ -68,7 +43,77 @@ struct Object {
         const struct Data   *global;
         const struct Module *module;
     };
-};
+} Object;
+
+// The calling convention for functions starts with an argument count.
+// All parameters must be `Object`.
+typedef Object (*Function)(u32 argc, va_list *);
+
+
+
+// Manipulate the reference count of a value.
+//   - Must only be called on values.
+//   - Need not be called on globals and nums.
+//   - Automatically frees the value when the reference count is 0.
+Object obj_incref(Object);   // Returns the supplied object
+void   obj_decref(Object);
+
+// Make various kinds of values.
+Object obj_make_array(u16 len, Object el); // `Array` of `len` copies of `el`
+Object obj_make_bool (bool);               // `Bool` values; global
+Object obj_make_bytes(const char *);       // `Bytes` from a C string
+Object obj_make_num  (u64);                // `Num` from C u64
+
+// Make non-values
+Object obj_make_ref   (Object *);
+
+bool   obj_get_bool (Object);              // Extract a C bool from a `Bool`
+
+
+
+// The value `{}`.
+extern const Object UNIT;
+
+
+
+// Call method `NAME` with the first argument as receiver.
+// The receiver must be a value or a reference.
+// Automatically counts the arguments.
+#define method(NAME, ...) _method(NAME, VA_ARGC(__VA_ARGS__), __VA_ARGS__)
+Object _method(u32 name, u32 argc, ...);
+
+#define VA_ARGC(...) VA_ARGC_(__VA_ARGS__, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+#define VA_ARGC_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, N, ...) N
+
+
+
+// Defining modules
+
+// Define a C function and wrap it in a module.
+#define FN(fn_name, id)                    \
+    static Object fn_name(u32, va_list *); \
+    static struct Module mod_##fn_name = { \
+        .name = id,                        \
+        .function = fn_name,               \
+        .child_count = 0,                  \
+    };                                     \
+    static Object fn_name(u32 argc, va_list *args)
+
+// Reference a function / module as a child of a module.
+#define FN_OBJ(fn_name) { .kind = KIND_MODULE, .module = &mod_##fn_name }
+
+// Reference global data as a child of a module.
+#define GLOBAL_OBJ(name) { .kind = KIND_GLOBAL, .global = &name }
+
+// Retrieve an argument from varargs, asserting its type or kind.
+Object arg_data    (va_list *, const struct Module *);
+Object arg_kind    (va_list *, u8);
+Object arg_ref_kind(va_list *, u8);
+Object arg_val     (va_list *);
+
+
+
+// Object representations
 
 struct Array {
     u32 refcount;
@@ -83,6 +128,11 @@ struct Bytes {
     char contents[];
 };
 
+struct Field {
+    u32 name;
+    Object value;
+};
+
 struct Data {
     const struct Module *module;
     u32 refcount;
@@ -93,11 +143,12 @@ struct Module {
     const char *name;
     Function function;
     u32 child_count;
-    struct {
-        u32 name;
-        Object obj; // only KIND_MODULE and KIND_GLOBAL allowed
-    } children[];
+    struct Field children[]; // only KIND_MODULE and KIND_GLOBAL allowed
 };
+
+
+
+// Well-known modules.
 
 extern const struct Module ARRAY_MODULE;
 extern const struct Module BYTES_MODULE;

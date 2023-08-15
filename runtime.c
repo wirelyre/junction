@@ -33,7 +33,7 @@ _Noreturn void fail(const char *error, const char *format, ...)
     exit(1);
 }
 
-Object makeref(Object *o)
+Object obj_make_ref(Object *o)
 {
     if (o->kind == KIND_REF) fail("makeref", "called on ref");
     if (o->kind == KIND_MODULE) fail("makeref", "called on module");
@@ -45,7 +45,7 @@ Object makeref(Object *o)
     return ref;
 }
 
-Object incref(Object o)
+Object obj_incref(Object o)
 {
     switch (o.kind) {
         case KIND_GLOBAL:
@@ -78,7 +78,7 @@ Object incref(Object o)
     return o;
 }
 
-void decref(Object o)
+void obj_decref(Object o)
 {
     switch (o.kind) {
         case KIND_GLOBAL:
@@ -137,7 +137,7 @@ static Function get_method(Object o, u32 name)
     for (u32 i = 0; i < module->child_count; i++) {
         if (module->children[i].name == name) {
             dbg("[method %s.%s]\n", module->name, identifiers[name]);
-            Object child = module->children[i].obj;
+            Object child = module->children[i].value;
 
             if (child.kind != KIND_MODULE || child.module->function == NULL)
                 fail("not callable", "%s.%s", module->name, identifiers[name]);

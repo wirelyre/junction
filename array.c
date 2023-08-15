@@ -25,7 +25,7 @@ static struct Array *array_alloc(u16 len)
 }
 
 // Array with `len` copies of `el`.
-Object array_init(u16 len, Object el)
+Object obj_make_array(u16 len, Object el)
 {
     if (el.kind == KIND_REF)
         fail("Array", "initialized with ref");
@@ -35,14 +35,14 @@ Object array_init(u16 len, Object el)
     struct Array *a = array_alloc(len);
 
     for (u16 i = 0; i < len; i++) {
-        a->contents[i] = incref(el);
+        a->contents[i] = obj_incref(el);
     }
 
     struct Object o = {
         .kind = KIND_ARRAY,
         .array = a,
     };
-    decref(el);
+    obj_decref(el);
     return o;
 }
 
@@ -51,7 +51,7 @@ static struct Array *array_dup(struct Array *old)
     struct Array *new = array_alloc(old->len);
 
     for (u16 i = 0; i < old->len; i++) {
-        new->contents[i] = incref(old->contents[i]);
+        new->contents[i] = obj_incref(old->contents[i]);
     }
 
     return new;
@@ -66,8 +66,8 @@ FN(array_get, "Array.get")
 
     assert(idx.num < self.array->len);
 
-    Object ret = incref(self.array->contents[idx.num]);
-    decref(self);
+    Object ret = obj_incref(self.array->contents[idx.num]);
+    obj_decref(self);
     // decref(idx);
     return ret;
 }
@@ -85,12 +85,12 @@ FN(array_set, "Array.set")
     // ensure unique ref
     if (self.ref->array->refcount > 1) {
         struct Array *new = array_dup(self.ref->array);
-        decref(*self.ref);
+        obj_decref(*self.ref);
         self.ref->kind = KIND_ARRAY;
         self.ref->array = new;
     }
 
-    decref(self.ref->array->contents[idx.num]);
+    obj_decref(self.ref->array->contents[idx.num]);
     self.ref->array->contents[idx.num] = val;
 
     // decref(idx);
@@ -101,7 +101,7 @@ const struct Module ARRAY_MODULE = {
     .name = "Array",
     .child_count = 2,
     .children = {
-        { .name = Id_get, .obj = FN_OBJ(array_get) },
-        { .name = Id_set, .obj = FN_OBJ(array_set) },
+        { .name = Id_get, .value = FN_OBJ(array_get) },
+        { .name = Id_set, .value = FN_OBJ(array_set) },
     },
 };

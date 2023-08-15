@@ -34,7 +34,7 @@ static u32 round_up_pow_2(u32 n)
     return n + 1;
 }
 
-Object bytes_init(const char *s)
+Object obj_make_bytes(const char *s)
 {
     u32 len = strlen(s);
     u32 cap = round_up_pow_2(len);
@@ -84,12 +84,12 @@ FN(bytes_append, "Bytes.append")
 
         dbg("[alloc Bytes: %p]\n", new);
 
-        decref(*self.ref);
+        obj_decref(*self.ref);
         self.ref->kind = KIND_BYTES;
         self.ref->bytes = new;
     }
 
-    decref(from_);
+    obj_decref(from_);
 
     return UNIT;
 }
@@ -100,7 +100,7 @@ FN(bytes_print, "Bytes.print")
     assert(argc == 1);
     Object self = arg_kind(args, KIND_BYTES); // self: Bytes
     fwrite(self.bytes->contents, 1, self.bytes->len, stdout);
-    decref(self);
+    obj_decref(self);
     return UNIT;
 }
 
@@ -108,7 +108,7 @@ const struct Module BYTES_MODULE = {
     .name = "Bytes",
     .child_count = 2,
     .children = {
-        { .name = Id_append, .obj = FN_OBJ(bytes_append) },
-        { .name = Id_print,  .obj = FN_OBJ(bytes_print)  },
+        { .name = Id_append, .value = FN_OBJ(bytes_append) },
+        { .name = Id_print,  .value = FN_OBJ(bytes_print)  },
     },
 };
