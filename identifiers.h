@@ -1,28 +1,35 @@
 #define IDENTIFIERS \
-    T(Array)  \
-    T(get)    \
-    T(set)    \
-              \
-    T(Bool)   \
-    T(True)   \
-    T(False)  \
-              \
-    T(Bytes)  \
-    T(append) \
-    T(print)  \
-              \
-    T(Number) \
-    T(add)    \
-    T(sub)    \
-    T(mul)    \
-    T(div)    \
-    T(not)    \
-    T(and)    \
-    T(or)     \
-    T(xor)    \
-    T(gt)     \
-    T(fmt)    \
-              \
+    T(Array)     \
+    T(get)       \
+    T(set)       \
+                 \
+    T(Bool)      \
+    T(True)      \
+    T(False)     \
+                 \
+    T(Bytes)     \
+    T(append)    \
+    T(print)     \
+                 \
+    T(Number)    \
+    T(add)       \
+    T(sub)       \
+    T(mul)       \
+    T(div)       \
+    T(not)       \
+    T(and)       \
+    T(or)        \
+    T(xor)       \
+    T(gt)        \
+    T(fmt)       \
+                 \
+    T(Option)    \
+    T(None)      \
+    T(Some)      \
+    T(inner)     \
+    T(unwrap)    \
+    T(unwrap_or) \
+                 \
     T(Unit)
 
 enum Identifiers {

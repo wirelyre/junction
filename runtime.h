@@ -65,9 +65,16 @@ Object obj_make_bytes(const char *);       // `Bytes` from a C string
 Object obj_make_num  (u64);                // `Num` from C u64
 
 // Make non-values
+Object obj_make_module(const struct Module *);
 Object obj_make_ref   (Object *);
 
+// Allocate and partially initialize data.
+// Everything except the data fields (names and values) is initialized.
+Object obj_alloc_data(const struct Module *, u32 tag, u16 len);
+
 bool   obj_get_bool (Object);              // Extract a C bool from a `Bool`
+Object obj_get_field(Object, u32 name);    // Only callable on data and modules
+u32    obj_get_tag  (Object);              // Only callable on data
 
 
 
@@ -75,6 +82,11 @@ bool   obj_get_bool (Object);              // Extract a C bool from a `Bool`
 extern const Object UNIT;
 
 
+
+// Call function `F`.
+// Automatically counts the arguments.
+#define call(F, ...) _call(F, VA_ARGC(__VA_ARGS__), __VA_ARGS__)
+Object _call(Object f, u32 argc, ...);
 
 // Call method `NAME` with the first argument as receiver.
 // The receiver must be a value or a reference.
@@ -137,6 +149,8 @@ struct Data {
     const struct Module *module;
     u32 refcount;
     u32 tag;
+    u16 field_count;
+    struct Field fields[];
 };
 
 struct Module {
@@ -153,3 +167,4 @@ struct Module {
 extern const struct Module ARRAY_MODULE;
 extern const struct Module BYTES_MODULE;
 extern const struct Module NUM_MODULE;
+extern const struct Module OPTION_MODULE;

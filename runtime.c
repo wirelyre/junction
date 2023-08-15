@@ -45,6 +45,15 @@ Object obj_make_ref(Object *o)
     return ref;
 }
 
+Object obj_make_module(const struct Module *m)
+{
+    Object mod = {
+        .kind = KIND_MODULE,
+        .module = m,
+    };
+    return mod;
+}
+
 Object obj_incref(Object o)
 {
     switch (o.kind) {
@@ -110,10 +119,106 @@ void obj_decref(Object o)
             if (o.data->refcount == 0) fail("decref after free", "%s", o.data->module->name);
             if (--o.data->refcount == 0) {
                 dbg("[free %s: %p]\n", o.data->module->name, o.data);
+                for (u16 i = 0; i < o.data->field_count; i++) {
+                    obj_decref(o.data->fields[i].value);
+                }
                 free(o.data);
             }
             break;
     }
+}
+
+Object obj_get_field(Object o, u32 name)
+{
+    switch (o.kind) {
+        case KIND_NUM:   fail("no such field", "Num.%s",   identifiers[name]);
+        case KIND_ARRAY: fail("no such field", "Array.%s", identifiers[name]);
+        case KIND_BYTES: fail("no such field", "Bytes.%s", identifiers[name]);
+
+        case KIND_REF: fail("field access", "called on ref");
+
+        case KIND_GLOBAL:
+            for (u16 i = 0; i < o.global->field_count; i++) {
+                if (o.global->fields[i].name == name) {
+                    // incref on child (future-proofing)
+                    // no decref on self (global; unnecessary)
+                    return obj_incref(o.global->fields[i].value);
+                }
+            }
+            fail("no such field", "%s.%s", o.global->module->name, identifiers[name]);
+
+        case KIND_DATA:
+            for (u16 i = 0; i < o.data->field_count; i++) {
+                if (o.data->fields[i].name == name) {
+                    Object field = obj_incref(o.data->fields[i].value);
+                    obj_decref(o);
+                    return field;
+                }
+            }
+            fail("no such field", "%s.%s", o.data->module->name, identifiers[name]);
+
+        case KIND_MODULE:
+            for (u32 i = 0; i < o.module->child_count; i++) {
+                if (o.module->children[i].name == name) {
+                    // no incref on child (global or module)
+                    // no decref on self (module)
+                    return o.module->children[i].value;
+                }
+            }
+            fail("no such field", "%s.%s", o.module->name, identifiers[name]);
+    }
+}
+
+u32 obj_get_tag(Object o)
+{
+    u32 tag;
+
+    switch (o.kind) {
+        case KIND_DATA:
+            tag = o.data->tag;
+            obj_decref(o);
+            return tag;
+
+        case KIND_GLOBAL:
+            tag = o.global->tag;
+            return tag;
+
+        case KIND_ARRAY:  fail("get tag", "called on Array");
+        case KIND_BYTES:  fail("get tag", "called on Bytes");
+        case KIND_NUM:    fail("get tag", "called on Num");
+        case KIND_MODULE: fail("get tag", "called on module");
+        case KIND_REF:    fail("get tag", "called on ref");
+    }
+}
+
+Object obj_alloc_data(const struct Module *m, u32 tag, u16 len)
+{
+    Object new = {
+        .kind = KIND_DATA,
+        .data = malloc(sizeof(struct Data) + len * sizeof(struct Field)),
+    };
+    new.data->module = m;
+    new.data->refcount = 1;
+    new.data->tag = tag;
+    new.data->field_count = len;
+
+    dbg("[alloc %s: %p]\n", m->name, new.data);
+
+    return new;
+}
+
+Object _call(Object f, u32 argc, ...)
+{
+    assert(f.kind == KIND_MODULE);
+    assert(f.module->function != NULL);
+
+    va_list args;
+
+    va_start(args, argc);
+    Object ret = f.module->function(argc, &args);
+    va_end(args);
+
+    return ret;
 }
 
 static Function get_method(Object o, u32 name)
@@ -163,6 +268,28 @@ Object _method(u32 name, u32 argc, ...)
     va_end(args);
 
     return ret;
+}
+
+Object arg_data(va_list *l, const struct Module *m)
+{
+    Object o = va_arg(*l, Object);
+    switch (o.kind) {
+        case KIND_DATA:
+            if (o.data->module != m)
+                fail("argument", "expected %s, found %s", m->name, o.data->module->name);
+            return o;
+
+        case KIND_GLOBAL:
+            if (o.global->module != m)
+                fail("argument", "expected %s, found %s", m->name, o.global->module->name);
+            return o;
+
+        case KIND_ARRAY:  fail("argument", "expected %s, found Array",  m->name);
+        case KIND_BYTES:  fail("argument", "expected %s, found Bytes",  m->name);
+        case KIND_NUM:    fail("argument", "expected %s, found Num",    m->name);
+        case KIND_MODULE: fail("argument", "expected %s, found module", m->name);
+        case KIND_REF:    fail("argument", "expected %s, found ref",    m->name);
+    }
 }
 
 Object arg_kind(va_list *l, u8 kind)

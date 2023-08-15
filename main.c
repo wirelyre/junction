@@ -1,6 +1,13 @@
 #include "runtime.h"
 #include "identifiers.h"
 
+void print(Object o)
+{
+    Object b = obj_make_bytes("");
+    method(Id_fmt, o, obj_make_ref(&b));
+    method(Id_print, b);
+}
+
 int main(int argc, char *argv[])
 {
     // object model: values are pointers to heap allocations
@@ -83,6 +90,36 @@ int main(int argc, char *argv[])
     method(Id_fmt, max, obj_make_ref(&b));
     method(Id_append, obj_make_ref(&b), obj_make_bytes("\n"));
     method(Id_print, b);
+
+
+
+    Object Option = obj_make_module(&OPTION_MODULE);
+    Object Option__None = obj_get_field(Option, Id_None);
+    Object Option__Some = obj_get_field(Option, Id_Some);
+
+    Object my_option = call(Option__Some, obj_make_num(5));
+    Object my_option2 = call(Option__Some, obj_make_num(6));
+
+    // print(my_option | my_option2)
+    Object result = method(Id_or, obj_incref(my_option), obj_incref(my_option2));
+    print(obj_get_field(result, Id_inner)); // 5
+
+    /*
+        print(my_option->unwrap())
+        print(my_option2->unwrap_or(7))
+        print(None->unwrap_or(7))
+    */
+    print(method(Id_unwrap, obj_incref(my_option))); // 5
+    print(method(Id_unwrap_or, obj_incref(my_option2), obj_make_num(7))); // 6
+    print(method(Id_unwrap_or, Option__None, obj_make_num(7)));           // 7
+
+    Object nested = call(Option__Some, obj_incref(my_option));
+
+    obj_decref(nested);
+    obj_decref(my_option);
+    obj_decref(my_option2);
+
+    method(Id_print, obj_make_bytes("\n"));
 
     return 0;
 }

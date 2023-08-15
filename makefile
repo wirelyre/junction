@@ -1,7 +1,7 @@
 CC=cc
 OPTS=
 
-SOURCES=main.c array.c bool.c bytes.c identifiers.c num.c runtime.c unit.c
+SOURCES=main.c array.c bool.c bytes.c identifiers.c num.c option.c runtime.c unit.c
 HEADERS=identifiers.h runtime.h
 
 main: $(SOURCES) $(HEADERS)
