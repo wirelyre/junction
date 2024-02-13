@@ -1,0 +1,4 @@
+(library
+ (name junction)
+ (libraries batteries sexplib stdint)
+ (preprocess (pps ppx_sexp_conv)))

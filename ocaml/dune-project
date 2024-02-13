@@ -1,0 +1,15 @@
+(lang dune 3.12)
+
+(name junction)
+
+(source (github wirelyre/junction))
+(authors "wirelyre")
+
+(generate_opam_files true)
+
+(package
+ (name junction)
+ (synopsis "A second programming language")
+ (description "Programming language with strong algebraic types")
+ (depends ocaml dune batteries stdint
+          sexplib ppx_sexp_conv))
