@@ -37,9 +37,13 @@ and eval { stack } = function
   | Drop -> ignore (pop stack)
   | Method m ->
       let receiver = pop stack in
-      push stack
-        (Value.Function
-           (BatHashtbl.find Value.Nat.methods m));
+      let table =
+        match receiver with
+        | Bool _ -> Value.Bool.methods
+        | Nat _ -> Value.Nat.methods
+        | _ -> raise Value.WrongType
+      in
+      push stack (Value.Function (BatHashtbl.find table m));
       push stack receiver
   | Call argc ->
       let stack', f, argv = split_end !stack argc in

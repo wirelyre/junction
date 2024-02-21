@@ -1,18 +1,20 @@
-type t = Nat of Uint64.t | Function of (t list -> t)
+open Sexplib.Std
+
+type t =
+  | Bool of bool
+  | Nat of Uint64.t
+  | Function of (t list -> t)
 [@@deriving sexp]
 
 exception WrongType
-
-let uint64_of_t = function
-  | Nat i -> i
-  | _ -> raise WrongType
 
 let fun_of_t = function
   | Function f -> f
   | _ -> raise WrongType
 
 let type_ = function
-  | Nat _ -> "std.Nat"
+  | Bool _ -> "core.Bool"
+  | Nat _ -> "core.Nat"
   | Function _ -> raise WrongType
 
 module Nat = struct
@@ -20,6 +22,10 @@ module Nat = struct
 
   let lift2 f = function
     | [ Nat lhs; Nat rhs ] -> Nat (f lhs rhs)
+    | _ -> raise WrongType
+
+  let comp f = function
+    | [ Nat lhs; Nat rhs ] -> Bool (f (compare lhs rhs))
     | _ -> raise WrongType
 
   let div lhs rhs =
@@ -34,5 +40,29 @@ module Nat = struct
         ("div", lift2 div);
         ("and", lift2 logand);
         ("or", lift2 logor);
+        ("lt", comp (fun c -> c < 0));
+        ("le", comp (fun c -> c <= 0));
+        ("ne", comp (fun c -> c <> 0));
+        ("eq", comp (fun c -> c == 0));
+        ("ge", comp (fun c -> c >= 0));
+        ("gt", comp (fun c -> c > 0));
+      ]
+end
+
+module Bool = struct
+  let lift1 f = function
+    | [ Bool b ] -> Bool (f b)
+    | _ -> raise WrongType
+
+  let lift2 f = function
+    | [ Bool lhs; Bool rhs ] -> Bool (f lhs rhs)
+    | _ -> raise WrongType
+
+  let methods =
+    BatHashtbl.of_list
+      [
+        ("not", lift1 not);
+        ("and", lift2 ( && ));
+        ("or", lift2 ( || ));
       ]
 end

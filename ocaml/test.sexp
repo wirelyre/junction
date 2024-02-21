@@ -21,3 +21,12 @@
   (Literal 1000000) (Method sub) (Literal 1) (Call 2)
   (Call 2)
 )
+
+; { 10 < 11 }
+((Literal 10) (Method lt) (Literal 11) (Call 2))
+
+; { 15 >= 3 }
+((Literal 15) (Method ge) (Literal 3) (Call 2))
+
+; !{4 > 5}
+((Literal 4) (Method gt) (Literal 5) (Call 2) (Method not) (Call 1))
