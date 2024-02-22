@@ -30,3 +30,15 @@
 
 ; !{4 > 5}
 ((Literal 4) (Method gt) (Literal 5) (Call 2) (Method not) (Call 1))
+
+; if 0 == 1 { 2 } else { 3 }
+(
+  (Literal 0) (Method eq) (Literal 1) (Call 2)
+  (Cases ( ("True" ((Literal 2))) ("False" ((Literal 3))) ))
+)
+
+; if 0 != 1 { 2 } else { 3 }
+(
+  (Literal 0) (Method ne) (Literal 1) (Call 2)
+  (Cases (("True" ((Literal 2))) ("False" ((Literal 3)))))
+)

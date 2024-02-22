@@ -17,6 +17,11 @@ let type_ = function
   | Nat _ -> "core.Nat"
   | Function _ -> raise WrongType
 
+let tag = function
+  | Bool false -> "False"
+  | Bool true -> "True"
+  | _ -> raise WrongType
+
 module Nat = struct
   open Uint64
 
