@@ -6,6 +6,7 @@ type inst =
   | Method of string
   | Call of int
   | Cases of (string * inst list) list
+  | While of inst list * inst list
 [@@deriving sexp]
 
 let insts_of_sexp = Sexplib.Std.list_of_sexp inst_of_sexp
@@ -57,3 +58,8 @@ and eval { stack } = function
       let value = pop stack in
       let branch = List.assoc (Value.tag value) c in
       push stack (eval_block branch)
+  | While (test, body) ->
+      while Value.bool_of_t (eval_block test) do
+        Value.unit_of_t (eval_block body)
+      done;
+      push stack Unit

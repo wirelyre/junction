@@ -9,6 +9,12 @@ type t =
 
 exception WrongType
 
+let bool_of_t = function
+  | Bool b -> b
+  | _ -> raise WrongType
+
+let unit_of_t = function Unit -> () | _ -> raise WrongType
+
 let fun_of_t = function
   | Function f -> f
   | _ -> raise WrongType

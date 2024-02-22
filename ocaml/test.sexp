@@ -42,3 +42,9 @@
   (Literal 0) (Method ne) (Literal 1) (Call 2)
   (Cases (("True" ((Literal 2))) ("False" ((Literal 3)))))
 )
+
+; { while 1 < 0 { 2 } 3 }
+((While 
+  ((Literal 1) (Method lt) (Literal 0) (Call 2))
+  ((Literal 2))) Drop
+ (Literal 3))
