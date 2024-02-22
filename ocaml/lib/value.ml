@@ -3,6 +3,7 @@ open Sexplib.Std
 type t =
   | Bool of bool
   | Nat of Uint64.t
+  | Unit
   | Function of (t list -> t)
 [@@deriving sexp]
 
@@ -15,6 +16,7 @@ let fun_of_t = function
 let type_ = function
   | Bool _ -> "core.Bool"
   | Nat _ -> "core.Nat"
+  | Unit -> "core.Unit"
   | Function _ -> raise WrongType
 
 let tag = function
