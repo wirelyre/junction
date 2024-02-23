@@ -46,5 +46,23 @@
 ; { while 1 < 0 { 2 } 3 }
 ((While 
   ((Literal 1) (Method lt) (Literal 0) (Call 2))
-  ((Literal 2))) Drop
+  ((Literal 2)))
  (Literal 3))
+
+; first Fibonacci >= 100
+(
+  (Literal 0) Create ; a := 0
+  (Literal 1) Create ; b := 1
+  ; while a < 100
+  (While ((Ref 0) Load (Method lt) (Literal 100) (Call 2)) (
+    ; tmp := a + b
+    (Ref 0) Load (Method add) (Ref 1) Load (Call 2) Create
+    (Ref 0) (Ref 1) Load Store ; a := b
+    (Ref 1) (Ref 2) Load Store ; b := tmp
+    Unit
+    Destroy ; tmp
+  ))
+  (Ref 0) Load ; a
+  Destroy ; b
+  Destroy ; a
+)

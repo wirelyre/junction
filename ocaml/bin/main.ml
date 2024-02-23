@@ -12,7 +12,7 @@ let _ =
 
         print_string "-> ";
 
-        Bytecode.eval_block bc
+        Bytecode.eval_block bc (ref BatVect.empty)
         |> Value.sexp_of_t |> Sexp.to_string
         |> print_endline)
       sexps)

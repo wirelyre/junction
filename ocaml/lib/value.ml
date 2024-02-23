@@ -4,19 +4,20 @@ type t =
   | Bool of bool
   | Nat of Uint64.t
   | Unit
-  | Function of (t list -> t)
+  | Function of (obj list -> t)
 [@@deriving sexp]
+
+(* A value or reference.
+ *
+ * Temporary stack items are objects.
+ * Function take objects as arguments, and return values.
+ *)
+and obj = Val of t | Ref of t ref
 
 exception WrongType
 
 let bool_of_t = function
   | Bool b -> b
-  | _ -> raise WrongType
-
-let unit_of_t = function Unit -> () | _ -> raise WrongType
-
-let fun_of_t = function
-  | Function f -> f
   | _ -> raise WrongType
 
 let type_ = function
@@ -30,15 +31,28 @@ let tag = function
   | Bool true -> "True"
   | _ -> raise WrongType
 
+let ref_of_obj = function
+  | Val _ -> raise WrongType
+  | Ref r -> r
+
+let val_of_obj = function
+  | Val v -> v
+  | Ref _ -> raise WrongType
+
+let fun_of_obj = function
+  | Val (Function f) -> f
+  | _ -> raise WrongType
+
 module Nat = struct
   open Uint64
 
   let lift2 f = function
-    | [ Nat lhs; Nat rhs ] -> Nat (f lhs rhs)
+    | [ Val (Nat lhs); Val (Nat rhs) ] -> Nat (f lhs rhs)
     | _ -> raise WrongType
 
   let comp f = function
-    | [ Nat lhs; Nat rhs ] -> Bool (f (compare lhs rhs))
+    | [ Val (Nat lhs); Val (Nat rhs) ] ->
+        Bool (f (compare lhs rhs))
     | _ -> raise WrongType
 
   let div lhs rhs =
@@ -64,11 +78,11 @@ end
 
 module Bool = struct
   let lift1 f = function
-    | [ Bool b ] -> Bool (f b)
+    | [ Val (Bool b) ] -> Bool (f b)
     | _ -> raise WrongType
 
   let lift2 f = function
-    | [ Bool lhs; Bool rhs ] -> Bool (f lhs rhs)
+    | [ Val (Bool lhs); Val (Bool rhs) ] -> Bool (f lhs rhs)
     | _ -> raise WrongType
 
   let methods =
