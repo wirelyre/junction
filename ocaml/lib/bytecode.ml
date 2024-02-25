@@ -41,12 +41,12 @@ let split_end vec n =
 
 let rec eval_block insts vars =
   let state =
-    { stack = ref BatVect.empty; vars = ref !vars }
+    { stack = ref BatVect.empty; vars = ref vars }
   in
   List.iter (eval state) insts;
 
   assert (BatVect.length !(state.stack) == 1);
-  assert (BatVect.(length !(state.vars) == length !vars));
+  assert (BatVect.(length !(state.vars) == length vars));
   BatVect.get !(state.stack) 0 |> Value.val_of_obj
 
 and eval { stack; vars } = function
@@ -86,8 +86,11 @@ and eval { stack; vars } = function
       let branch =
         List.assoc (Value.tag (Value.val_of_obj value)) c
       in
-      push stack (Val (eval_block branch vars))
+      push stack (Val (eval_block branch !vars))
   | While (test, body) ->
-      while Value.bool_of_t (eval_block test vars) do
-        ignore (eval_block body vars)
+      while Value.bool_of_t (eval_block test !vars) do
+        ignore (eval_block body !vars)
       done
+
+let fun_of_bc insts args =
+  eval_block insts (args |> List.map ref |> BatVect.of_list)

@@ -1,4 +1,5 @@
 (executable
  (public_name junction)
  (name main)
- (libraries junction))
+ (libraries junction)
+ (preprocess (pps ppx_sexp_conv)))
