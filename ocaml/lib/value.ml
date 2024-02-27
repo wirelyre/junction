@@ -4,7 +4,7 @@ type t =
   | Bool of bool
   | Nat of Uint64.t
   | Unit
-  | Function of (obj list -> t)
+  | Function of (ns -> obj list -> t)
 [@@deriving sexp]
 
 (* A value or reference.
@@ -14,10 +14,17 @@ type t =
  *)
 and obj = Val of t | Ref of t ref
 
+(* Namespace *)
+and ns = (string, t) Hashtbl.t
+
 exception WrongType
 
 let bool_of_t = function
   | Bool b -> b
+  | _ -> raise WrongType
+
+let fun_of_t = function
+  | Function f -> f
   | _ -> raise WrongType
 
 let type_ = function
@@ -39,6 +46,10 @@ let val_of_obj = function
   | Val v -> v
   | Ref _ -> raise WrongType
 
+let named_var_of_obj = function
+  | Val v -> ref v
+  | Ref r -> r
+
 let fun_of_obj = function
   | Val (Function f) -> f
   | _ -> raise WrongType
@@ -46,11 +57,11 @@ let fun_of_obj = function
 module Nat = struct
   open Uint64
 
-  let lift2 f = function
+  let lift2 f (_ns : ns) = function
     | [ Val (Nat lhs); Val (Nat rhs) ] -> Nat (f lhs rhs)
     | _ -> raise WrongType
 
-  let comp f = function
+  let comp f (_ns : ns) = function
     | [ Val (Nat lhs); Val (Nat rhs) ] ->
         Bool (f (compare lhs rhs))
     | _ -> raise WrongType
@@ -77,11 +88,11 @@ module Nat = struct
 end
 
 module Bool = struct
-  let lift1 f = function
+  let lift1 f (_ns : ns) = function
     | [ Val (Bool b) ] -> Bool (f b)
     | _ -> raise WrongType
 
-  let lift2 f = function
+  let lift2 f (_ns : ns) = function
     | [ Val (Bool lhs); Val (Bool rhs) ] -> Bool (f lhs rhs)
     | _ -> raise WrongType
 

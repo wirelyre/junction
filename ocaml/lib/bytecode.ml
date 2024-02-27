@@ -11,8 +11,10 @@ type inst =
   | Ref of int
   | Load
   | Store
-  (* Control flow *)
+  (* Modules *)
   | Method of string
+  | Global of string
+  (* Control flow *)
   | Call of int
   | Cases of (string * inst list) list
   | While of inst list * inst list
@@ -39,17 +41,17 @@ let split_end vec n =
     BatVect.get vec (len - n - 1),
     BatVect.sub vec (len - n) n )
 
-let rec eval_block insts vars =
+let rec eval_block insts ns vars =
   let state =
     { stack = ref BatVect.empty; vars = ref vars }
   in
-  List.iter (eval state) insts;
+  List.iter (eval ns state) insts;
 
   assert (BatVect.length !(state.stack) == 1);
   assert (BatVect.(length !(state.vars) == length vars));
   BatVect.get !(state.stack) 0 |> Value.val_of_obj
 
-and eval { stack; vars } = function
+and eval ns { stack; vars } = function
   | Literal i -> push stack (Val (Value.Nat i))
   | Unit -> push stack (Val Unit)
   | Drop -> pop stack |> ignore
@@ -74,10 +76,11 @@ and eval { stack; vars } = function
       push stack
         (Val (Value.Function (BatHashtbl.find table m)));
       push stack receiver
+  | Global g -> push stack (Val (BatHashtbl.find ns g))
   | Call argc ->
       let stack', f, argv = split_end !stack argc in
       let result =
-        (Value.fun_of_obj f) (BatVect.to_list argv)
+        (Value.fun_of_obj f) ns (BatVect.to_list argv)
       in
       stack := stack';
       push stack (Val result)
@@ -86,11 +89,16 @@ and eval { stack; vars } = function
       let branch =
         List.assoc (Value.tag (Value.val_of_obj value)) c
       in
-      push stack (Val (eval_block branch !vars))
+      push stack (Val (eval_block branch ns !vars))
   | While (test, body) ->
-      while Value.bool_of_t (eval_block test !vars) do
-        ignore (eval_block body !vars)
+      while Value.bool_of_t (eval_block test ns !vars) do
+        ignore (eval_block body ns !vars)
       done
 
-let fun_of_bc insts args =
-  eval_block insts (args |> List.map ref |> BatVect.of_list)
+let fun_of_bc insts =
+  Value.Function
+    (fun ns args ->
+      eval_block insts ns
+        (args
+        |> List.map Value.named_var_of_obj
+        |> BatVect.of_list))
