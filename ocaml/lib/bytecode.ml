@@ -11,6 +11,9 @@ type inst =
   | Ref of int
   | Load
   | Store
+  (* Data *)
+  | Construct of string * string option * string list
+  | Field of string
   (* Modules *)
   | Method of string
   | Global of string
@@ -41,6 +44,19 @@ let split_end vec n =
     BatVect.get vec (len - n - 1),
     BatVect.sub vec (len - n) n )
 
+let construct names stack =
+  let offset = BatVect.length !stack - List.length names in
+  let value =
+    BatSeq.(
+      ints offset
+      |> map (BatVect.get !stack)
+      |> map Value.val_of_obj
+      |> zip (of_list names))
+    |> BatList.of_seq
+  in
+  stack := BatVect.sub !stack 0 offset;
+  value
+
 let rec eval_block insts ns vars =
   let state =
     { stack = ref BatVect.empty; vars = ref vars }
@@ -65,6 +81,10 @@ and eval ns { stack; vars } = function
       let value = pop stack in
       let ref = pop stack in
       Value.ref_of_obj ref := Value.val_of_obj value
+  | Construct (type_, tag, fields) ->
+      let fields = construct fields stack in
+      push stack (Val (Data { type_; tag; fields }))
+  | Field f -> push stack (Val (Value.field f (pop stack)))
   | Method m ->
       let receiver = pop stack in
       let table =

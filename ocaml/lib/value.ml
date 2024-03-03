@@ -2,6 +2,11 @@ open Sexplib.Std
 
 type t =
   | Bool of bool
+  | Data of {
+      type_ : string;
+      tag : string option;
+      fields : (string * t) list;
+    }
   | Nat of Uint64.t
   | Unit
   | Function of (ns -> obj list -> t)
@@ -29,6 +34,7 @@ let fun_of_t = function
 
 let type_ = function
   | Bool _ -> "core.Bool"
+  | Data d -> d.type_
   | Nat _ -> "core.Nat"
   | Unit -> "core.Unit"
   | Function _ -> raise WrongType
@@ -36,6 +42,11 @@ let type_ = function
 let tag = function
   | Bool false -> "False"
   | Bool true -> "True"
+  | Data { tag = Some t; _ } -> t
+  | _ -> raise WrongType
+
+let field f = function
+  | Val (Data { fields; _ }) -> List.assoc f fields
   | _ -> raise WrongType
 
 let ref_of_obj = function

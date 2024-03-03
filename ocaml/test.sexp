@@ -114,3 +114,12 @@
      ((Ref 0) Load (Method le) (Ref 1) Load (Call 2)
       (Cases ((True  ((Ref 0) Load))
               (False ((Ref 1) Load)))))))))
+
+((expect (Nat 3)) (namespace
+  ((main
+     ((Global test.Date)
+      (Literal 2024) (Literal 3) (Literal 1) (Call 3)
+      (Field month)))
+   (test.Date
+     ((Ref 0) Load (Ref 1) Load (Ref 2) Load
+      (Construct test.Date None (year month day)))))))
