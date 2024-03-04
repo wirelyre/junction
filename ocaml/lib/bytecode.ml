@@ -84,7 +84,8 @@ and eval ns { stack; vars } = function
   | Construct (type_, tag, fields) ->
       let fields = construct fields stack in
       push stack (Val (Data { type_; tag; fields }))
-  | Field f -> push stack (Val (Value.field f (pop stack)))
+  | Field f ->
+      push stack (Val (Value.field ns f (pop stack)))
   | Method m ->
       let receiver = pop stack in
       let table =
@@ -93,8 +94,7 @@ and eval ns { stack; vars } = function
         | Nat _ -> Value.Nat.methods
         | _ -> raise Value.WrongType
       in
-      push stack
-        (Val (Value.Function (BatHashtbl.find table m)));
+      push stack (Val (BatHashtbl.find table m));
       push stack receiver
   | Global g -> push stack (Val (BatHashtbl.find ns g))
   | Call argc ->
@@ -115,10 +115,11 @@ and eval ns { stack; vars } = function
         ignore (eval_block body ns !vars)
       done
 
-let fun_of_bc insts =
-  Value.Function
-    (fun ns args ->
-      eval_block insts ns
-        (args
-        |> List.map Value.named_var_of_obj
-        |> BatVect.of_list))
+let fun_of_bc path insts =
+  let f ns args =
+    eval_block insts ns
+      (args
+      |> List.map Value.named_var_of_obj
+      |> BatVect.of_list)
+  in
+  Value.Module { path; f = Some f }

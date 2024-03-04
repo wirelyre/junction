@@ -9,7 +9,10 @@ type t =
     }
   | Nat of Uint64.t
   | Unit
-  | Function of (ns -> obj list -> t)
+  | Module of {
+      path : string;
+      f : (ns -> obj list -> t) option;
+    }
 [@@deriving sexp]
 
 (* A value or reference.
@@ -29,7 +32,7 @@ let bool_of_t = function
   | _ -> raise WrongType
 
 let fun_of_t = function
-  | Function f -> f
+  | Module { f = Some f; _ } -> f
   | _ -> raise WrongType
 
 let type_ = function
@@ -37,7 +40,7 @@ let type_ = function
   | Data d -> d.type_
   | Nat _ -> "core.Nat"
   | Unit -> "core.Unit"
-  | Function _ -> raise WrongType
+  | Module _ -> raise WrongType
 
 let tag = function
   | Bool false -> "False"
@@ -45,8 +48,10 @@ let tag = function
   | Data { tag = Some t; _ } -> t
   | _ -> raise WrongType
 
-let field f = function
+let field ns f = function
   | Val (Data { fields; _ }) -> List.assoc f fields
+  | Val (Module { path; _ }) ->
+      Hashtbl.find ns (path ^ "." ^ f)
   | _ -> raise WrongType
 
 let ref_of_obj = function
@@ -62,17 +67,24 @@ let named_var_of_obj = function
   | Ref r -> r
 
 let fun_of_obj = function
-  | Val (Function f) -> f
+  | Val (Module { f = Some f; _ }) -> f
   | _ -> raise WrongType
+
+let ns_of_methods mod_name mthds : ns =
+  let path name = mod_name ^ "." ^ name in
+  List.to_seq mthds
+  |> Seq.map (fun (name, f) ->
+         (name, Module { path = path name; f = Some f }))
+  |> Hashtbl.of_seq
 
 module Nat = struct
   open Uint64
 
-  let lift2 f (_ns : ns) = function
+  let lift2 f _ns = function
     | [ Val (Nat lhs); Val (Nat rhs) ] -> Nat (f lhs rhs)
     | _ -> raise WrongType
 
-  let comp f (_ns : ns) = function
+  let comp f _ns = function
     | [ Val (Nat lhs); Val (Nat rhs) ] ->
         Bool (f (compare lhs rhs))
     | _ -> raise WrongType
@@ -81,7 +93,7 @@ module Nat = struct
     if compare rhs zero > 0 then lhs / rhs else max_int
 
   let methods =
-    BatHashtbl.of_list
+    ns_of_methods "core.Nat"
       [
         ("add", lift2 add);
         ("sub", lift2 sub);
@@ -99,16 +111,16 @@ module Nat = struct
 end
 
 module Bool = struct
-  let lift1 f (_ns : ns) = function
+  let lift1 f _ns = function
     | [ Val (Bool b) ] -> Bool (f b)
     | _ -> raise WrongType
 
-  let lift2 f (_ns : ns) = function
+  let lift2 f _ns = function
     | [ Val (Bool lhs); Val (Bool rhs) ] -> Bool (f lhs rhs)
     | _ -> raise WrongType
 
   let methods =
-    BatHashtbl.of_list
+    ns_of_methods "core.Bool"
       [
         ("not", lift1 not);
         ("and", lift2 ( && ));

@@ -17,8 +17,7 @@ let () =
         let test = test_of_sexp sexp in
 
         let ns =
-          test.namespace
-          |> Hashtbl.map (fun _path -> Bytecode.fun_of_bc)
+          test.namespace |> Hashtbl.map Bytecode.fun_of_bc
         in
         let main =
           Value.fun_of_t (Hashtbl.find ns "main")

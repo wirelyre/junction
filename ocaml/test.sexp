@@ -123,3 +123,10 @@
    (test.Date
      ((Ref 0) Load (Ref 1) Load (Ref 2) Load
       (Construct test.Date None (year month day)))))))
+
+((expect (Nat 5)) (namespace
+  ((main ((Global core) (Field Nat) (Field add)
+          (Literal 2) (Literal 3) (Call 2)))
+   (core ())
+   (core.Nat ())
+   (core.Nat.add ((Ref 0) Load (Method add) (Ref 1) Load (Call 2))))))
