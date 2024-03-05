@@ -24,15 +24,15 @@
           (Call 2))))))
 
 ; { 10 < 11 }
-((expect (Bool true)) (namespace
+((expect (Data (type_ core.Bool) (tag True))) (namespace
   ((main ((Literal 10) (Method lt) (Literal 11) (Call 2))))))
 
 ; { 15 >= 3 }
-((expect (Bool true)) (namespace
+((expect (Data (type_ core.Bool) (tag True))) (namespace
   ((main ((Literal 15) (Method ge) (Literal 3) (Call 2))))))
 
 ; !{4 > 5}
-((expect (Bool true)) (namespace
+((expect (Data (type_ core.Bool) (tag True))) (namespace
   ((main ((Literal 4) (Method gt) (Literal 5) (Call 2) (Method not) (Call 1))))))
 
 ; if 0 == 1 { 2 } else { 3 }
@@ -87,23 +87,20 @@
         (Call 2))))))))))
 
 ; is_even(5)
-((expect (Bool false)) (namespace
+((expect (Data (type_ core.Bool) (tag False))) (namespace
   ((main ((Global is_even) (Literal 5) (Call 1)))
    (is_even
      ; if n == 0 { True } else { is_odd(n - 1) }
      ((Ref 0) Load (Method eq) (Literal 0) (Call 2)
       (Cases
-        ((True ((Global Bool.True) (Call 0)))
+        ((True ((Global core.Bool.True)))
          (False ((Global is_odd) (Ref 0) Load (Method sub) (Literal 1) (Call 2) (Call 1)))))))
    (is_odd
      ; if n == 0 { False } else { is_even(n - 1) }
      ((Ref 0) Load (Method eq) (Literal 0) (Call 2)
       (Cases
-        ((True  ((Global Bool.False) (Call 0)))
-         (False ((Global is_odd) (Ref 0) Load (Method sub) (Literal 1) (Call 2) (Call 1)))))))
-  ; Bool.True and .False currently functions
-  (Bool.True ((Literal 0) (Method eq) (Literal 0) (Call 2)))
-  (Bool.False ((Literal 0) (Method eq) (Literal 1) (Call 2))))))
+        ((True  ((Global core.Bool.False)))
+         (False ((Global is_odd) (Ref 0) Load (Method sub) (Literal 1) (Call 2) (Call 1))))))))))
 
 ; min(6, 7)
 ((expect (Nat 6)) (namespace
@@ -126,7 +123,4 @@
 
 ((expect (Nat 5)) (namespace
   ((main ((Global core) (Field Nat) (Field add)
-          (Literal 2) (Literal 3) (Call 2)))
-   (core ())
-   (core.Nat ())
-   (core.Nat.add ((Ref 0) Load (Method add) (Ref 1) Load (Call 2))))))
+          (Literal 2) (Literal 3) (Call 2))))))

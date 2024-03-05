@@ -1,14 +1,12 @@
 open Sexplib.Std
 
 type t =
-  | Bool of bool
   | Data of {
       type_ : string;
-      tag : string option;
-      fields : (string * t) list;
+      tag : string option; [@sexp.option]
+      fields : (string * t) list; [@sexp.list]
     }
   | Nat of Uint64.t
-  | Unit
   | Module of {
       path : string;
       f : (ns -> obj list -> t) option;
@@ -27,24 +25,30 @@ and ns = (string, t) Hashtbl.t
 
 exception WrongType
 
+let mk_unit type_ tag = Data { type_; tag; fields = [] }
+let unit_ = mk_unit "core.Unit" None
+
+let t_of_bool b =
+  mk_unit "core.Bool" (Some (if b then "True" else "False"))
+
 let bool_of_t = function
-  | Bool b -> b
+  | Data { type_ = "core.Bool"; tag = Some tag; _ } ->
+      tag = "True"
   | _ -> raise WrongType
 
 let fun_of_t = function
   | Module { f = Some f; _ } -> f
   | _ -> raise WrongType
 
-let type_ = function
-  | Bool _ -> "core.Bool"
-  | Data d -> d.type_
-  | Nat _ -> "core.Nat"
-  | Unit -> "core.Unit"
-  | Module _ -> raise WrongType
+let type_ =
+  let type_of_t = function
+    | Data d -> d.type_
+    | Nat _ -> "core.Nat"
+    | Module _ -> raise WrongType
+  in
+  function Val v -> type_of_t v | Ref r -> type_of_t !r
 
 let tag = function
-  | Bool false -> "False"
-  | Bool true -> "True"
   | Data { tag = Some t; _ } -> t
   | _ -> raise WrongType
 
@@ -70,12 +74,33 @@ let fun_of_obj = function
   | Val (Module { f = Some f; _ }) -> f
   | _ -> raise WrongType
 
-let ns_of_methods mod_name mthds : ns =
+let methods mod_name =
   let path name = mod_name ^ "." ^ name in
-  List.to_seq mthds
-  |> Seq.map (fun (name, f) ->
-         (name, Module { path = path name; f = Some f }))
-  |> Hashtbl.of_seq
+  List.map (fun (name, f) ->
+      (path name, Module { path = path name; f = Some f }))
+
+module Bool = struct
+  let lift1 f _ns = function
+    | [ Val b ] -> t_of_bool (f (bool_of_t b))
+    | _ -> raise WrongType
+
+  let lift2 f _ns = function
+    | [ Val lhs; Val rhs ] ->
+        t_of_bool (f (bool_of_t lhs) (bool_of_t rhs))
+    | _ -> raise WrongType
+
+  let ns =
+    [
+      ("core.Bool.False", t_of_bool false);
+      ("core.Bool.True", t_of_bool true);
+    ]
+    @ methods "core.Bool"
+        [
+          ("not", lift1 not);
+          ("and", lift2 ( && ));
+          ("or", lift2 ( || ));
+        ]
+end
 
 module Nat = struct
   open Uint64
@@ -86,14 +111,14 @@ module Nat = struct
 
   let comp f _ns = function
     | [ Val (Nat lhs); Val (Nat rhs) ] ->
-        Bool (f (compare lhs rhs))
+        t_of_bool (f (compare lhs rhs))
     | _ -> raise WrongType
 
   let div lhs rhs =
     if compare rhs zero > 0 then lhs / rhs else max_int
 
-  let methods =
-    ns_of_methods "core.Nat"
+  let ns =
+    methods "core.Nat"
       [
         ("add", lift2 add);
         ("sub", lift2 sub);
@@ -110,20 +135,9 @@ module Nat = struct
       ]
 end
 
-module Bool = struct
-  let lift1 f _ns = function
-    | [ Val (Bool b) ] -> Bool (f b)
-    | _ -> raise WrongType
-
-  let lift2 f _ns = function
-    | [ Val (Bool lhs); Val (Bool rhs) ] -> Bool (f lhs rhs)
-    | _ -> raise WrongType
-
-  let methods =
-    ns_of_methods "core.Bool"
-      [
-        ("not", lift1 not);
-        ("and", lift2 ( && ));
-        ("or", lift2 ( || ));
-      ]
-end
+let builtins =
+  let no_code path = (path, Module { path; f = None }) in
+  [
+    no_code "core"; no_code "core.Bool"; no_code "core.Nat";
+  ]
+  @ Nat.ns @ Bool.ns

@@ -47,12 +47,12 @@ let split_end vec n =
 let construct names stack =
   let offset = BatVect.length !stack - List.length names in
   let value =
-    BatSeq.(
+    Seq.(
       ints offset
       |> map (BatVect.get !stack)
       |> map Value.val_of_obj
-      |> zip (of_list names))
-    |> BatList.of_seq
+      |> zip (List.to_seq names))
+    |> List.of_seq
   in
   stack := BatVect.sub !stack 0 offset;
   value
@@ -69,7 +69,7 @@ let rec eval_block insts ns vars =
 
 and eval ns { stack; vars } = function
   | Literal i -> push stack (Val (Value.Nat i))
-  | Unit -> push stack (Val Unit)
+  | Unit -> push stack (Val Value.unit_)
   | Drop -> pop stack |> ignore
   | Create ->
       pop stack |> Value.val_of_obj |> ref |> push vars
@@ -88,13 +88,9 @@ and eval ns { stack; vars } = function
       push stack (Val (Value.field ns f (pop stack)))
   | Method m ->
       let receiver = pop stack in
-      let table =
-        match Value.val_of_obj receiver with
-        | Bool _ -> Value.Bool.methods
-        | Nat _ -> Value.Nat.methods
-        | _ -> raise Value.WrongType
-      in
-      push stack (Val (BatHashtbl.find table m));
+      let type_ = Value.type_ receiver in
+      eval ns { stack; vars } (Global type_);
+      eval ns { stack; vars } (Field m);
       push stack receiver
   | Global g -> push stack (Val (BatHashtbl.find ns g))
   | Call argc ->
@@ -115,11 +111,11 @@ and eval ns { stack; vars } = function
         ignore (eval_block body ns !vars)
       done
 
-let fun_of_bc path insts =
+let fun_of_bc (path, insts) =
   let f ns args =
     eval_block insts ns
       (args
       |> List.map Value.named_var_of_obj
       |> BatVect.of_list)
   in
-  Value.Module { path; f = Some f }
+  (path, Value.Module { path; f = Some f })

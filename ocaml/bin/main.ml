@@ -3,11 +3,9 @@ open Sexplib.Std
 
 type test = {
   expect : Value.t;
-  namespace : (string, Bytecode.inst list) Hashtbl.t;
+  namespace : (string * Bytecode.inst list) list;
 }
 [@@deriving sexp]
-
-open Batteries
 
 let () =
   Sexplib.(
@@ -17,7 +15,9 @@ let () =
         let test = test_of_sexp sexp in
 
         let ns =
-          test.namespace |> Hashtbl.map Bytecode.fun_of_bc
+          BatHashtbl.of_list
+            (Value.builtins
+            @ List.map Bytecode.fun_of_bc test.namespace)
         in
         let main =
           Value.fun_of_t (Hashtbl.find ns "main")
