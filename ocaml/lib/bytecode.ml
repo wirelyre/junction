@@ -111,11 +111,15 @@ and eval ns { stack; vars } = function
         ignore (eval_block body ns !vars)
       done
 
-let fun_of_bc (path, insts) =
-  let f ns args =
-    eval_block insts ns
-      (args
-      |> List.map Value.named_var_of_obj
-      |> BatVect.of_list)
-  in
-  (path, Value.Module { path; f = Some f })
+type item = Code of inst list [@sexp.list]
+[@@deriving sexp]
+
+let val_of_item = function
+  | path, Code insts ->
+      let f ns args =
+        eval_block insts ns
+          (args
+          |> List.map Value.named_var_of_obj
+          |> BatVect.of_list)
+      in
+      (path, Value.Module { path; f = Some f })

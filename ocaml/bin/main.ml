@@ -3,7 +3,7 @@ open Sexplib.Std
 
 type test = {
   expect : Value.t;
-  namespace : (string * Bytecode.inst list) list;
+  namespace : (string * Bytecode.item) list;
 }
 [@@deriving sexp]
 
@@ -17,7 +17,7 @@ let () =
         let ns =
           BatHashtbl.of_list
             (Value.builtins
-            @ List.map Bytecode.fun_of_bc test.namespace)
+            @ List.map Bytecode.val_of_item test.namespace)
         in
         let main =
           Value.fun_of_t (Hashtbl.find ns "main")
