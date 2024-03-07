@@ -19,6 +19,7 @@ type inst =
   | Call of int
   | Cases of (string * inst list) list
   | While of inst list * inst list
+  | For of inst list
 [@@deriving sexp]
 
 let insts_of_sexp = Sexplib.Std.list_of_sexp inst_of_sexp
@@ -41,6 +42,10 @@ let split_end vec n =
   ( BatVect.sub vec 0 (len - n - 1),
     BatVect.get vec (len - n - 1),
     BatVect.sub vec (len - n) n )
+
+let get_method name ns receiver =
+  let table = Hashtbl.find ns (Value.type_ receiver) in
+  Value.field ns name (Val table)
 
 let rec eval_block insts ns vars =
   let state =
@@ -70,9 +75,7 @@ and eval ns { stack; vars } = function
       Value.ref_of_obj ref := Value.val_of_obj value
   | Method m ->
       let receiver = pop stack in
-      let type_ = Value.type_ receiver in
-      eval ns { stack; vars } (Global type_);
-      eval ns { stack; vars } (Field m);
+      push stack (Val (get_method m ns receiver));
       push stack receiver
   | Global g -> push stack (Val (BatHashtbl.find ns g))
   | Call argc ->
@@ -92,6 +95,17 @@ and eval ns { stack; vars } = function
       while Value.bool_of_t (eval_block test ns !vars) do
         ignore (eval_block body ns !vars)
       done
+  | For body ->
+      let iter = pop stack |> Value.named_var_of_obj in
+      let next =
+        Value.fun_of_t (get_method "next" ns (Ref iter))
+      in
+      Seq.of_dispenser (fun () ->
+          next ns [ Ref iter ] |> Value.option_of_t)
+      |> Seq.iter (fun item ->
+             push vars (ref item);
+             eval_block body ns !vars |> ignore;
+             pop vars |> ignore)
 
 type item =
   | Code of inst list [@sexp.list]

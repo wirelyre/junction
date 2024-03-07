@@ -74,6 +74,11 @@ let fun_of_obj = function
   | Val (Module { f = Some f; _ }) -> f
   | _ -> raise WrongType
 
+let option_of_t = function
+  | Data { type_ = "core.Option"; fields; _ } ->
+      List.assoc_opt "inner" fields
+  | _ -> raise WrongType
+
 let methods mod_name =
   let path name = mod_name ^ "." ^ name in
   List.map (fun (name, f) ->

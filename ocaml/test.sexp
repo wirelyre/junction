@@ -143,3 +143,49 @@
    (core.Option ())
    (core.Option ((Unit None)))
    (core.Option ((Constructor (Some) (inner)))))))
+
+; 1 + 2 + ... + 100
+((expect (Nat 5050)) (namespace
+  ((main ((Code
+   ; let sum := 0
+   ; for n := range(1, 101) { sum := sum + n }
+   ; sum
+     (Literal 0) Create
+     (Global std.range) (Literal 1) (Literal 101) (Call 2)
+     (For (
+       (Ref 0) (Ref 0) Load (Method add) (Ref 1) Load (Call 2) Store
+       Unit))
+     (Ref 0) Load
+     Destroy)))
+
+   ; type Option[T](None | Some(inner: T))
+   (core.Option ())
+   (core.Option ((Unit None)))
+   (core.Option ((Constructor (Some) (inner))))
+
+   ; type range(start: Nat, end: Nat)
+   (std.range ((Constructor () (start end))))
+
+   ; impl range {
+   ;     fn next(^self): Option[Nat] {
+   ;         if self.start < self.end {
+   ;             ^self := range(self.start + 1, self.end)
+   ;             Some(self.start - 1)
+   ;         } else { None }
+   ;     }
+   ; }
+   (std.range.next ((Code
+     (Ref 0) Load (Field start) (Method lt)
+     (Ref 0) Load (Field end) (Call 2)
+     (Cases
+       ((True (
+         (Ref 0)
+           (Global std.range)
+           (Ref 0) Load (Field start) (Method add) (Literal 1) (Call 2)
+           (Ref 0) Load (Field end)
+           (Call 2)
+         Store
+         (Global core.Option.Some)
+           (Ref 0) Load (Field start) (Method sub) (Literal 1) (Call 2)
+         (Call 1)))
+       (False ((Global core.Option.None)))))))))))
