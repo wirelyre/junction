@@ -5,15 +5,13 @@ type inst =
   | Literal of Uint64.t
   | Unit
   | Drop
+  | Field of string
   (* Variables and references *)
   | Create
   | Destroy
   | Ref of int
   | Load
   | Store
-  (* Data *)
-  | Construct of string * string option * string list
-  | Field of string
   (* Modules *)
   | Method of string
   | Global of string
@@ -44,19 +42,6 @@ let split_end vec n =
     BatVect.get vec (len - n - 1),
     BatVect.sub vec (len - n) n )
 
-let construct names stack =
-  let offset = BatVect.length !stack - List.length names in
-  let value =
-    Seq.(
-      ints offset
-      |> map (BatVect.get !stack)
-      |> map Value.val_of_obj
-      |> zip (List.to_seq names))
-    |> List.of_seq
-  in
-  stack := BatVect.sub !stack 0 offset;
-  value
-
 let rec eval_block insts ns vars =
   let state =
     { stack = ref BatVect.empty; vars = ref vars }
@@ -71,6 +56,8 @@ and eval ns { stack; vars } = function
   | Literal i -> push stack (Val (Value.Nat i))
   | Unit -> push stack (Val Value.unit_)
   | Drop -> pop stack |> ignore
+  | Field f ->
+      push stack (Val (Value.field ns f (pop stack)))
   | Create ->
       pop stack |> Value.val_of_obj |> ref |> push vars
   | Destroy -> pop vars |> ignore
@@ -81,11 +68,6 @@ and eval ns { stack; vars } = function
       let value = pop stack in
       let ref = pop stack in
       Value.ref_of_obj ref := Value.val_of_obj value
-  | Construct (type_, tag, fields) ->
-      let fields = construct fields stack in
-      push stack (Val (Data { type_; tag; fields }))
-  | Field f ->
-      push stack (Val (Value.field ns f (pop stack)))
   | Method m ->
       let receiver = pop stack in
       let type_ = Value.type_ receiver in
@@ -111,11 +93,15 @@ and eval ns { stack; vars } = function
         ignore (eval_block body ns !vars)
       done
 
-type item = Code of inst list [@sexp.list]
+type item =
+  | Code of inst list [@sexp.list]
+  | Unit of string
+  | Constructor of string option * string list
 [@@deriving sexp]
 
 let val_of_item = function
-  | path, Code insts ->
+  | path, None -> (path, Value.Module { path; f = None })
+  | path, Some (Code insts) ->
       let f ns args =
         eval_block insts ns
           (args
@@ -123,3 +109,22 @@ let val_of_item = function
           |> BatVect.of_list)
       in
       (path, Value.Module { path; f = Some f })
+  | type_, Some (Unit tag) ->
+      ( type_ ^ "." ^ tag,
+        Value.Data { type_; tag = Some tag; fields = [] } )
+  | type_, Some (Constructor (tag, fields)) ->
+      let path =
+        match tag with
+        | None -> type_
+        | Some tag -> type_ ^ "." ^ tag
+      in
+      let constructor _ns args =
+        let fields =
+          Seq.zip
+            (List.to_seq fields)
+            (List.to_seq args |> Seq.map Value.val_of_obj)
+          |> List.of_seq
+        in
+        Value.Data { type_; tag; fields }
+      in
+      (path, Value.Module { path; f = Some constructor })

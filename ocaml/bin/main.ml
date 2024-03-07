@@ -3,7 +3,7 @@ open Sexplib.Std
 
 type test = {
   expect : Value.t;
-  namespace : (string * Bytecode.item) list;
+  namespace : (string * Bytecode.item option) list;
 }
 [@@deriving sexp]
 
