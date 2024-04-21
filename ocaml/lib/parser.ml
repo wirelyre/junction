@@ -106,7 +106,7 @@ open Lex
 type binding = Global of string | Local of string * int
 
 type state = {
-  modules : (string * Bytecode.inst list) list ref;
+  items : (string * Bytecode.item) list ref;
   root : string;
   current : string;
   local_c : int;
@@ -400,8 +400,9 @@ and fn s name tokens =
   match rest with
   | Punct "{" :: rest ->
       let rest = block s' false rest in
-      s.modules :=
-        (name, BatVect.to_list !(s'.output)) :: !(s.modules);
+      s.items :=
+        (name, Code (BatVect.to_list !(s'.output)))
+        :: !(s.items);
       rest
   | _ -> raise No_parse
 
@@ -412,7 +413,7 @@ let parse_file tokens =
       let root, _, rest = parse_path (head, head, rest) in
       let s =
         {
-          modules = ref [];
+          items = ref [];
           root;
           current = root;
           local_c = 0;
@@ -425,7 +426,8 @@ let parse_file tokens =
       |> Sexplib.Sexp.to_string |> print_endline;
       (*if not (List.length rest = 0) then
         failwith "incomplete parse";*)
-      s.modules :=
-        (root, BatVect.to_list !(s.output)) :: !(s.modules);
-      !(s.modules)
+      s.items :=
+        (root, Code (BatVect.to_list !(s.output)))
+        :: !(s.items);
+      !(s.items)
   | _ -> raise No_parse

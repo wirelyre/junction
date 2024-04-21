@@ -1,8 +1,7 @@
 open Junction
 open Sexplib.Std
 
-type a = (string * Bytecode.inst list) list
-[@@deriving sexp]
+type a = (string * Bytecode.item) list [@@deriving sexp]
 
 let () =
   {|
