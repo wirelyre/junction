@@ -6,7 +6,7 @@ type a = (string * Bytecode.inst list) list
 
 let () =
   {|
-    mod main
+    module main
 
     use std.range
     let sum := 0

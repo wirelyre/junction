@@ -50,7 +50,7 @@ end = struct
   let identify s =
     match s with
     | "case" | "else" | "fn" | "for" | "if" | "impl" | "let"
-    | "mod" | "trait" | "type" | "use" | "while" ->
+    | "module" | "trait" | "type" | "use" | "while" ->
         Kw s
     | i when does_match ident i -> Ident i
     | n when does_match num n -> Num (Uint64.of_string n)
@@ -388,10 +388,10 @@ and fn s name tokens =
       rest
   | _ -> raise No_parse
 
-(*   file := 'mod' path stmt*   *)
+(*   file := 'module' path stmt*   *)
 let parse_file tokens =
   match tokens with
-  | Kw "mod" :: Ident head :: rest ->
+  | Kw "module" :: Ident head :: rest ->
       let root, _, rest = parse_path (head, head, rest) in
       let s =
         {
