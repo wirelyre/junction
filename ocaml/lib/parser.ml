@@ -199,7 +199,7 @@ and expr_core s : parser = function
   | Ident i :: rest ->
       append s (lookup s i);
       expr_post s rest
-  | Punct "{" :: rest -> block s false 0 rest |> expr_post s
+  | Punct "{" :: rest -> block s false rest |> expr_post s
   | _tokens -> raise No_parse (* TODO: tokens? *)
 
 (*   ... ('.' IDENT | '->' IDENT call | call)*   *)
@@ -237,8 +237,7 @@ and branch s : parser = function
       let true_branch = expr_loose s condition in
       let false_branch =
         match true_branch with
-        | Lex.Punct "{" :: rest ->
-            block if_true false 0 rest
+        | Lex.Punct "{" :: rest -> block if_true false rest
         | _ -> raise No_parse
       in
       let rest =
@@ -301,22 +300,23 @@ and expr_loose s tokens =
     s (branch s) tokens
 [@@ocamlformat "parens-tuple=multi-line-only"]
 
-and block s have_val local_c : parser =
+and block s have_val : parser =
   let drop () = if have_val then append s [ Drop ] in
   function
   | Punct "}" :: rest | ([] as rest) ->
       if not have_val then append s [ Unit ];
-      output s rest (replicate Bytecode.Destroy local_c)
+      rest
   | Kw "let" :: Ident i :: Punct ":=" :: rest ->
       drop ();
-      output s (expr_loose s rest) [ Create ]
-      |> block (add_local s i) false (local_c + 1)
-      (* TODO: maybe wrap in `output [Destroy]`, remove local_c *)
+      let rest = output s (expr_loose s rest) [ Create ] in
+      output s
+        (block (add_local s i) false rest)
+        [ Destroy ]
   | Ident i :: Punct ":=" :: rest ->
       drop ();
       append s (lookup_ref s i);
       output s (expr_loose s rest) [ Store ]
-      |> block s false local_c
+      |> block s false
   | Kw "while" :: rest ->
       drop ();
       let unwrap r = BatVect.to_list !r in
@@ -325,15 +325,15 @@ and block s have_val local_c : parser =
       let rest' =
         match expr_loose { s with output = test } rest with
         | Punct "{" :: rest ->
-            block { s with output = body } false 0 rest
+            block { s with output = body } false rest
         | _ -> raise No_parse
       in
       append s [ While (unwrap test, unwrap body) ];
-      block s false local_c rest'
+      block s false rest'
   | tokens ->
       (* expr_stmt *)
       drop ();
-      expr_loose s tokens |> block s true local_c
+      expr_loose s tokens |> block s true
 
 (*   file := 'mod' path stmt*   *)
 let parse_file (tokens : Lex.token list) :
@@ -351,7 +351,7 @@ let parse_file (tokens : Lex.token list) :
           output = ref BatVect.empty;
         }
       in
-      let rest = block s false 0 rest in
+      let rest = block s false rest in
       Sexplib.Std.sexp_of_list Lex.sexp_of_token rest
       |> Sexplib.Sexp.to_string |> print_endline;
       (*if not (List.length rest = 0) then
