@@ -11,8 +11,6 @@ module Lex : sig
   [@@deriving sexp]
 
   val lex : string -> token list
-  val identify : string -> token
-  val string : Str.regexp
 end = struct
   open Sexplib.Std
 
@@ -137,9 +135,6 @@ let append s insts =
 let output s x after =
   append s after;
   x
-
-let replicate x i =
-  Seq.repeat x |> Seq.take i |> List.of_seq
 
 let mk_new_output s = { s with output = ref BatVect.empty }
 let unwrap_output s = BatVect.to_list !(s.output)
