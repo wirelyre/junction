@@ -182,7 +182,11 @@ let rec parse_path : string * string * Lex.token list -> _ =
 let args : Lex.token list -> _ =
   let rec args' building : Lex.token list -> _ = function
     | Ident i :: Punct ")" :: rest
-    | Ident i :: Punct "," :: Punct ")" :: rest ->
+    | Ident i :: Punct "," :: Punct ")" :: rest
+    (* TODO: check semantics *)
+    | Punct "^" :: Ident i :: Punct ")" :: rest
+    | Punct "^" :: Ident i :: Punct "," :: Punct ")" :: rest
+      ->
         (BatVect.append i building, rest)
     | Ident i :: Punct "," :: rest ->
         args' (BatVect.append i building) rest
@@ -327,7 +331,9 @@ and block s have_val : parser =
       output s
         (block (add_local s i) false rest)
         [ Destroy ]
-  | Ident i :: Punct ":=" :: rest ->
+  | Ident i :: Punct ":=" :: rest
+  (* TODO: check semantics *)
+  | Punct "^" :: Ident i :: Punct ":=" :: rest ->
       drop ();
       append s (lookup_ref s i);
       output s (expr_loose s rest) [ Store ]
