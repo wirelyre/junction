@@ -11,12 +11,12 @@ let () =
     use core.Bool
     use core.Bool.False
     use core.Bool.True
-    use core.Int
+    use core.Nat
 
-    fn is_even(n: Int): Bool {
+    fn is_even(n: Nat): Bool {
         if n == 0 { True } else { is_odd(n - 1) }
     }
-    fn is_odd(n: Int): Bool {
+    fn is_odd(n: Nat): Bool {
         if n == 0 { False } else { is_even(n - 1) }
     }
 
