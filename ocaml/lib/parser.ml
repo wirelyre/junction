@@ -177,8 +177,10 @@ let rec parse_path = function
       parse_path (head ^ "." ^ tail, tail, rest)
   | path, last, tokens -> (path, last, tokens)
 
-let args =
-  let rec args' building = function
+(*   params := '(' ')' | '(' param (',' param)* ','? ')'   *)
+(*   param := '^'? IDENT ':' type   *)
+let params =
+  let rec params' building = function
     | Ident i :: Punct ")" :: rest
     | Ident i :: Punct "," :: Punct ")" :: rest
     (* TODO: check semantics *)
@@ -187,20 +189,20 @@ let args =
       ->
         (BatVect.append i building, rest)
     | Ident i :: Punct "," :: rest ->
-        args' (BatVect.append i building) rest
+        params' (BatVect.append i building) rest
     | _ -> raise No_parse
   in
   function
   | Punct "(" :: Punct ")" :: rest -> (BatVect.empty, rest)
-  | Punct "(" :: rest -> args' BatVect.empty rest
+  | Punct "(" :: rest -> params' BatVect.empty rest
   | _ -> raise No_parse
 
-(*  expr := ('!' | '-')* ...   *)
-let rec expr_pre s = function
+(*   expr := ('!' | '-')* ...   *)
+let rec expr s = function
   | Punct "!" :: rest ->
-      expr_pre s rest |> output s [ Method "not"; Call 1 ]
+      expr s rest |> output s [ Method "not"; Call 1 ]
   | Punct "-" :: rest ->
-      expr_pre s rest |> output s [ Method "neg"; Call 1 ]
+      expr s rest |> output s [ Method "neg"; Call 1 ]
   | Punct "^" :: Ident _i :: _rest -> failwith "todo"
   | tokens -> expr_core s tokens
 
@@ -245,6 +247,11 @@ and expr_call s argc tokens =
   | Punct "," :: rest -> expr_call s (argc + 1) rest
   | _ -> raise No_parse
 
+(*
+     branch := 'if' expr_loose block ('else' branch)?
+             | 'case' (IDENT ':=')? expr_loose cases
+     cases := '{' (IDENT '->' expr_loose)* '}'
+*)
 and branch s = function
   | Kw "if" :: condition ->
       let if_true = mk_new_output s in
@@ -277,7 +284,7 @@ and branch s = function
       expr_loose s rest
       |> case_branches s cases
       |> output s [ Cases (BatVect.to_list !cases) ]
-  | tokens -> expr_pre s tokens
+  | tokens -> expr s tokens
 
 and case_branches s cases = function
   | Punct "{" :: rest -> case_branches s cases rest
@@ -308,6 +315,16 @@ and expr_loose s tokens =
     s (branch s) tokens
 [@@ocamlformat "parens-tuple=multi-line-only"]
 
+(*
+     block := '{' stmt* '}'
+     stmt := 'let' IDENT ':=' expr_loose
+           | '^'? IDENT ':=' expr_loose
+           | 'while' expr_loose block
+           | 'for' IDENT ':=' expr_loose block
+           | 'fn' IDENT '(' params ')' block
+           | 'use' path
+           | expr_loose
+*)
 and block s have_val =
   let drop () = if have_val then append s [ Drop ] in
   function
@@ -363,7 +380,7 @@ and block s have_val =
       expr_loose s tokens |> block s true
 
 and fn s name tokens =
-  let args, rest = args tokens in
+  let args, rest = params tokens in
   let name = s.current ^ "." ^ name in
   let ns =
     BatVect.foldi
