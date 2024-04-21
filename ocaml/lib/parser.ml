@@ -149,7 +149,7 @@ let add_local s i =
   }
 
 let add_global s g n =
-  { s with ns = BatMap.add n (Global (g ^ "." ^ n)) s.ns }
+  { s with ns = BatMap.add n (Global g) s.ns }
 
 type parser = Lex.token list -> Lex.token list
 
@@ -173,12 +173,11 @@ let rec bin_prec ops s finally : parser =
       higher tokens |> tail
 
 (*   path := IDENT ('.' IDENT)*   *)
-let rec parse_path :
-    string * Lex.token list -> string * Lex.token list =
+let rec parse_path : string * string * Lex.token list -> _ =
   function
-  | head, Punct "." :: Ident tail :: rest ->
-      parse_path (head ^ "." ^ tail, rest)
-  | path, tokens -> (path, tokens)
+  | head, _, Punct "." :: Ident tail :: rest ->
+      parse_path (head ^ "." ^ tail, tail, rest)
+  | path, last, tokens -> (path, last, tokens)
 
 let args : Lex.token list -> _ =
   let rec args' building : Lex.token list -> _ = function
@@ -348,8 +347,15 @@ and block s have_val : parser =
   | Kw "fn" :: Ident i :: rest ->
       drop ();
       (* in scope for child and rest of block *)
-      let s = add_global s s.current i in
+      let s = add_global s (s.current ^ "." ^ i) i in
       let rest = fn s i rest in
+      block s false rest
+  | Kw "use" :: Ident head :: rest ->
+      drop ();
+      let full, name, rest =
+        parse_path (head, head, rest)
+      in
+      let s = add_global s full name in
       block s false rest
   | tokens ->
       (* expr_stmt *)
@@ -387,7 +393,7 @@ let parse_file (tokens : Lex.token list) :
     (string * Bytecode.inst list) list =
   match tokens with
   | Kw "mod" :: Ident head :: rest ->
-      let root, rest = parse_path (head, rest) in
+      let root, _, rest = parse_path (head, head, rest) in
       let s =
         {
           modules = ref [];
