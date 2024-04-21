@@ -108,13 +108,13 @@ type state = {
   modules : (string * Bytecode.inst list) list ref;
   root : string;
   current : string;
-  all_local_c : int;
-  namespace : (string * binding) list;
+  local_c : int;
+  ns : (string, binding) BatMap.t;
   output : Bytecode.inst BatVect.t ref;
 }
 
 let lookup s name : Bytecode.inst list =
-  match List.assoc_opt name s.namespace with
+  match BatMap.find_opt name s.ns with
   | Some (Global g) -> [ Global g ]
   | Some (Local (f, l)) when f = s.current ->
       [ Ref l; Load ]
@@ -122,7 +122,7 @@ let lookup s name : Bytecode.inst list =
   | None -> [ Global (s.root ^ "." ^ name) ]
 
 let lookup_ref s name : Bytecode.inst list =
-  match List.assoc_opt name s.namespace with
+  match BatMap.find_opt name s.ns with
   | Some (Local (f, l)) when f = s.current -> [ Ref l ]
   | Some (Local _) -> failwith "local in wrong scope"
   | Some (Global _) -> failwith "not a ref"
@@ -144,10 +144,12 @@ let unwrap_output s = BatVect.to_list !(s.output)
 let add_local s i =
   {
     s with
-    all_local_c = s.all_local_c + 1;
-    namespace =
-      (i, Local (s.current, s.all_local_c)) :: s.namespace;
+    local_c = s.local_c + 1;
+    ns = BatMap.add i (Local (s.current, s.local_c)) s.ns;
   }
+
+let add_global s g n =
+  { s with ns = BatMap.add n (Global (g ^ "." ^ n)) s.ns }
 
 type parser = Lex.token list -> Lex.token list
 
@@ -178,8 +180,22 @@ let rec parse_path :
       parse_path (head ^ "." ^ tail, rest)
   | path, tokens -> (path, tokens)
 
+let args : Lex.token list -> _ =
+  let rec args' building : Lex.token list -> _ = function
+    | Ident i :: Punct ")" :: rest
+    | Ident i :: Punct "," :: Punct ")" :: rest ->
+        (BatVect.append i building, rest)
+    | Ident i :: Punct "," :: rest ->
+        args' (BatVect.append i building) rest
+    | _ -> raise No_parse
+  in
+  function
+  | Punct "(" :: Punct ")" :: rest -> (BatVect.empty, rest)
+  | Punct "(" :: rest -> args' BatVect.empty rest
+  | _ -> raise No_parse
+
 (*  expr := ('!' | '-')* ...   *)
-and expr_pre s : parser = function
+let rec expr_pre s : parser = function
   | Punct "!" :: rest ->
       output s (expr_pre s rest) [ Method "not"; Call 1 ]
   | Punct "-" :: rest ->
@@ -260,7 +276,7 @@ and branch s : parser = function
         expr_loose s rest
         |> case_branches (add_local s i) cases
       in
-      append s [ Create; Ref s.all_local_c; Load ];
+      append s [ Create; Ref s.local_c; Load ];
       append s [ Cases (BatVect.to_list !cases) ];
       output s rest [ Destroy ]
   | Lex.Kw "case" :: rest ->
@@ -329,10 +345,42 @@ and block s have_val : parser =
       append s
         [ While (unwrap_output test, unwrap_output body) ];
       block s false rest'
+  | Kw "fn" :: Ident i :: rest ->
+      drop ();
+      (* in scope for child and rest of block *)
+      let s = add_global s s.current i in
+      let rest = fn s i rest in
+      block s false rest
   | tokens ->
       (* expr_stmt *)
       drop ();
       expr_loose s tokens |> block s true
+
+and fn (s : state) name tokens =
+  let args, rest = args tokens in
+  let name = s.current ^ "." ^ name in
+  let ns =
+    BatVect.foldi
+      (fun i ns arg -> BatMap.add arg (Local (name, i)) ns)
+      s.ns args
+  in
+  let s' =
+    {
+      s with
+      current = name;
+      local_c = BatVect.length args;
+      ns;
+      output = ref BatVect.empty;
+    }
+  in
+
+  match rest with
+  | Punct "{" :: rest ->
+      let rest = block s' false rest in
+      s.modules :=
+        (name, BatVect.to_list !(s'.output)) :: !(s.modules);
+      rest
+  | _ -> raise No_parse
 
 (*   file := 'mod' path stmt*   *)
 let parse_file (tokens : Lex.token list) :
@@ -345,8 +393,8 @@ let parse_file (tokens : Lex.token list) :
           modules = ref [];
           root;
           current = root;
-          all_local_c = 0;
-          namespace = [];
+          local_c = 0;
+          ns = BatMap.empty;
           output = ref BatVect.empty;
         }
       in
