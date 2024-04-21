@@ -1,6 +1,7 @@
 exception No_parse
 
 module Lex : sig
+  (* TODO: inline into module? *)
   type token =
     | Ident of string
     | Kw of string
@@ -102,6 +103,8 @@ end = struct
     result |> combine [] |> List.rev
 end
 
+open Lex
+
 type binding = Global of string | Local of string * int
 
 type state = {
@@ -131,7 +134,7 @@ let lookup_ref s name : Bytecode.inst list =
 let append s insts =
   s.output := BatVect.(concat !(s.output) (of_list insts))
 
-let output s (x : Lex.token list) after =
+let output s x after =
   append s after;
   x
 
@@ -151,21 +154,18 @@ let add_local s i =
 let add_global s g n =
   { s with ns = BatMap.add n (Global g) s.ns }
 
-type parser = Lex.token list -> Lex.token list
-
 (*
 
 
 *)
 
-let rec bin_prec ops s finally : parser =
- fun tokens ->
+let rec bin_prec ops s finally tokens =
   match ops with
   | [] -> finally tokens
   | this :: higher ->
       let higher = bin_prec higher s finally in
       let rec tail = function
-        | Lex.Punct p :: rest when List.mem_assoc p this ->
+        | Punct p :: rest when List.mem_assoc p this ->
             append s [ Bytecode.Method (List.assoc p this) ];
             output s (higher rest) [ Call 2 ] |> tail
         | tokens -> tokens
@@ -173,14 +173,13 @@ let rec bin_prec ops s finally : parser =
       higher tokens |> tail
 
 (*   path := IDENT ('.' IDENT)*   *)
-let rec parse_path : string * string * Lex.token list -> _ =
-  function
+let rec parse_path = function
   | head, _, Punct "." :: Ident tail :: rest ->
       parse_path (head ^ "." ^ tail, tail, rest)
   | path, last, tokens -> (path, last, tokens)
 
-let args : Lex.token list -> _ =
-  let rec args' building : Lex.token list -> _ = function
+let args =
+  let rec args' building = function
     | Ident i :: Punct ")" :: rest
     | Ident i :: Punct "," :: Punct ")" :: rest
     (* TODO: check semantics *)
@@ -198,7 +197,7 @@ let args : Lex.token list -> _ =
   | _ -> raise No_parse
 
 (*  expr := ('!' | '-')* ...   *)
-let rec expr_pre s : parser = function
+let rec expr_pre s = function
   | Punct "!" :: rest ->
       output s (expr_pre s rest) [ Method "not"; Call 1 ]
   | Punct "-" :: rest ->
@@ -207,7 +206,7 @@ let rec expr_pre s : parser = function
   | tokens -> expr_core s tokens
 
 (*   ... (NUM | IDENT | IDENT '<-' IDENT call) ...   *)
-and expr_core s : parser = function
+and expr_core s = function
   | Num n :: rest ->
       append s [ Literal n ];
       expr_post s rest
@@ -222,7 +221,7 @@ and expr_core s : parser = function
   | _tokens -> raise No_parse (* TODO: tokens? *)
 
 (*   ... ('.' IDENT | '->' IDENT call | call)*   *)
-and expr_post s : parser = function
+and expr_post s = function
   | Punct "." :: Ident f :: rest ->
       append s [ Bytecode.Field f ];
       expr_post s rest
@@ -241,27 +240,26 @@ and expr_post s : parser = function
 *)
 and expr_call s argc tokens =
   match expr_loose s tokens with
-  | Lex.Punct ")" :: rest | Punct "," :: Punct ")" :: rest
-    ->
+  | Punct ")" :: rest | Punct "," :: Punct ")" :: rest ->
       append s [ Call argc ];
       rest
-  | Lex.Punct "," :: rest -> expr_call s (argc + 1) rest
+  | Punct "," :: rest -> expr_call s (argc + 1) rest
   | _ -> raise No_parse
 
-and branch s : parser = function
-  | Lex.Kw "if" :: condition ->
+and branch s = function
+  | Kw "if" :: condition ->
       let if_true = mk_new_output s in
       let if_false = mk_new_output s in
 
       let true_branch = expr_loose s condition in
       let false_branch =
         match true_branch with
-        | Lex.Punct "{" :: rest -> block if_true false rest
+        | Punct "{" :: rest -> block if_true false rest
         | _ -> raise No_parse
       in
       let rest =
         match false_branch with
-        | Lex.Kw "else" :: rest -> branch if_false rest
+        | Kw "else" :: rest -> branch if_false rest
         | rest -> output if_false rest [ Unit ]
       in
 
@@ -273,7 +271,7 @@ and branch s : parser = function
               ("False", unwrap_output if_false);
             ];
         ]
-  | Lex.Kw "case" :: Ident i :: Punct ":=" :: rest ->
+  | Kw "case" :: Ident i :: Punct ":=" :: rest ->
       let cases = ref BatVect.empty in
       let rest =
         expr_loose s rest
@@ -282,7 +280,7 @@ and branch s : parser = function
       append s [ Create; Ref s.local_c; Load ];
       append s [ Cases (BatVect.to_list !cases) ];
       output s rest [ Destroy ]
-  | Lex.Kw "case" :: rest ->
+  | Kw "case" :: rest ->
       let cases = ref BatVect.empty in
       let rest =
         expr_loose s rest |> case_branches s cases
@@ -290,15 +288,15 @@ and branch s : parser = function
       output s rest [ Cases (BatVect.to_list !cases) ]
   | tokens -> expr_pre s tokens
 
-and case_branches s cases : parser = function
-  | Lex.Punct "{" :: rest -> case_branches s cases rest
-  | Lex.Ident i :: Punct "->" :: rest ->
+and case_branches s cases = function
+  | Punct "{" :: rest -> case_branches s cases rest
+  | Ident i :: Punct "->" :: rest ->
       let branch = mk_new_output s in
       let rest = expr_loose branch rest in
       cases :=
         BatVect.append (i, unwrap_output branch) !cases;
       case_branches s cases rest
-  | Lex.Punct "}" :: rest -> rest
+  | Punct "}" :: rest -> rest
   | _ -> raise No_parse
 
 (* precedence parsing *)
@@ -319,7 +317,7 @@ and expr_loose s tokens =
     s (branch s) tokens
 [@@ocamlformat "parens-tuple=multi-line-only"]
 
-and block s have_val : parser =
+and block s have_val =
   let drop () = if have_val then append s [ Drop ] in
   function
   | Punct "}" :: rest | ([] as rest) ->
@@ -368,7 +366,7 @@ and block s have_val : parser =
       drop ();
       expr_loose s tokens |> block s true
 
-and fn (s : state) name tokens =
+and fn s name tokens =
   let args, rest = args tokens in
   let name = s.current ^ "." ^ name in
   let ns =
@@ -395,8 +393,7 @@ and fn (s : state) name tokens =
   | _ -> raise No_parse
 
 (*   file := 'mod' path stmt*   *)
-let parse_file (tokens : Lex.token list) :
-    (string * Bytecode.inst list) list =
+let parse_file tokens =
   match tokens with
   | Kw "mod" :: Ident head :: rest ->
       let root, _, rest = parse_path (head, head, rest) in
@@ -411,7 +408,7 @@ let parse_file (tokens : Lex.token list) :
         }
       in
       let rest = block s false rest in
-      Sexplib.Std.sexp_of_list Lex.sexp_of_token rest
+      Sexplib.Std.sexp_of_list sexp_of_token rest
       |> Sexplib.Sexp.to_string |> print_endline;
       (*if not (List.length rest = 0) then
         failwith "incomplete parse";*)
