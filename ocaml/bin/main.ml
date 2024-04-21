@@ -1,37 +1,37 @@
 open Junction
 open Sexplib.Std
 
-type test = {
-  expect : Value.t;
-  namespace : (string * Bytecode.item option) list;
-}
+type a = (string * Bytecode.inst list) list
 [@@deriving sexp]
 
 let () =
-  Sexplib.(
-    let sexps = Sexp.load_sexps "test.sexp" in
-    List.iter
-      (fun sexp ->
-        let test = test_of_sexp sexp in
+  {|
+    mod main
+    #19 & 25
+    #a(3, )
+    #a->b(4,5,6,)
+    #1
+    #while True { 1 while False { 2 } 3 }
 
-        let ns =
-          BatHashtbl.of_list
-            (Value.builtins
-            @ List.map Bytecode.val_of_item test.namespace)
-        in
-        let main =
-          Value.fun_of_t (Hashtbl.find ns "main")
-        in
+    let a := if True { 4 + 5 } else { 6 - 7 }
+    a * 8
+  |}
+  |> Parser.Lex.lex |> Parser.parse_file |> sexp_of_a
+  |> Sexplib.Sexp.to_string |> print_endline
 
-        let expect = Value.sexp_of_t test.expect in
-        let result = Value.sexp_of_t (main ns []) in
-
-        if expect = result then
-          print_endline ("✅ " ^ Sexp.to_string result)
-        else
-          print_endline
-            ("❌ "
-            ^ Sexp.to_string result
-            ^ ", expected "
-            ^ Sexp.to_string expect))
-      sexps)
+(*
+let () =
+  Parser.Lex.lex
+    {|
+fn sum[T: Add, I: Iterator[T]](zero: T, iter: I): T {
+    let total := zero
+    for item := iter {
+        total := total + item
+    }
+    total
+}
+|}
+  |> List.map Parser.Lex.sexp_of_token
+  |> List.map Sexplib.Sexp.to_string
+  |> List.iter print_endline
+*)
