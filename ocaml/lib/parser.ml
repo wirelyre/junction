@@ -343,6 +343,17 @@ and block s have_val =
       append s
         [ While (unwrap_output test, unwrap_output body) ];
       block s false rest'
+  | Kw "for" :: Ident i :: Punct ":=" :: rest ->
+      drop ();
+      let body = mk_new_output s in
+      let rest' =
+        match expr_loose s rest with
+        | Punct "{" :: rest ->
+            block (add_local body i) false rest
+        | _ -> raise No_parse
+      in
+      append s [ For (unwrap_output body) ];
+      block s false rest'
   | Kw "fn" :: Ident i :: rest ->
       drop ();
       (* in scope for child and rest of block *)

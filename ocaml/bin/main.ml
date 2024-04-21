@@ -8,17 +8,10 @@ let () =
   {|
     mod main
 
-    use core.Bool
-    use core.Bool.False
-    use core.Bool.True
-    use core.Nat
-
-    fn is_even(n: Nat): Bool {
-        if n == 0 { True } else { is_odd(n - 1) }
-    }
-    fn is_odd(n: Nat): Bool {
-        if n == 0 { False } else { is_even(n - 1) }
-    }
+    use std.range
+    let sum := 0
+    for n := range(1, 101) { sum := sum + n }
+    sum
 
   |}
   |> Parser.Lex.lex |> Parser.parse_file |> sexp_of_a
