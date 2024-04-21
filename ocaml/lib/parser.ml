@@ -132,9 +132,13 @@ let lookup_ref s name : Bytecode.inst list =
 let append s insts =
   s.output := BatVect.(concat !(s.output) (of_list insts))
 
-let output s x after =
+let output s after x =
   append s after;
   x
+
+let require tok = function
+  | tok' :: rest when tok = tok' -> rest
+  | _ -> raise No_parse
 
 let mk_new_output s = { s with output = ref BatVect.empty }
 let unwrap_output s = BatVect.to_list !(s.output)
@@ -162,7 +166,7 @@ let rec bin_prec ops s finally tokens =
       let rec tail = function
         | Punct p :: rest when List.mem_assoc p this ->
             append s [ Bytecode.Method (List.assoc p this) ];
-            output s (higher rest) [ Call 2 ] |> tail
+            higher rest |> output s [ Call 2 ] |> tail
         | tokens -> tokens
       in
       higher tokens |> tail
@@ -194,9 +198,9 @@ let args =
 (*  expr := ('!' | '-')* ...   *)
 let rec expr_pre s = function
   | Punct "!" :: rest ->
-      output s (expr_pre s rest) [ Method "not"; Call 1 ]
+      expr_pre s rest |> output s [ Method "not"; Call 1 ]
   | Punct "-" :: rest ->
-      output s (expr_pre s rest) [ Method "neg"; Call 1 ]
+      expr_pre s rest |> output s [ Method "neg"; Call 1 ]
   | Punct "^" :: Ident _i :: _rest -> failwith "todo"
   | tokens -> expr_core s tokens
 
@@ -246,41 +250,33 @@ and branch s = function
       let if_true = mk_new_output s in
       let if_false = mk_new_output s in
 
-      let true_branch = expr_loose s condition in
-      let false_branch =
-        match true_branch with
-        | Punct "{" :: rest -> block if_true false rest
-        | _ -> raise No_parse
-      in
-      let rest =
-        match false_branch with
+      let tail = function
         | Kw "else" :: rest -> branch if_false rest
-        | rest -> output if_false rest [ Unit ]
+        | rest -> output if_false [ Unit ] rest
       in
 
-      output s rest (* TODO: is correct precedence? *)
-        [
-          Cases
-            [
-              ("True", unwrap_output if_true);
-              ("False", unwrap_output if_false);
-            ];
-        ]
+      expr_loose s condition
+      |> require (Punct "{") |> block if_true false |> tail
+      |> output s (* TODO: is correct precedence? *)
+           [
+             Cases
+               [
+                 ("True", unwrap_output if_true);
+                 ("False", unwrap_output if_false);
+               ];
+           ]
   | Kw "case" :: Ident i :: Punct ":=" :: rest ->
       let cases = ref BatVect.empty in
-      let rest =
-        expr_loose s rest
-        |> case_branches (add_local s i) cases
-      in
-      append s [ Create; Ref s.local_c; Load ];
-      append s [ Cases (BatVect.to_list !cases) ];
-      output s rest [ Destroy ]
+      expr_loose s rest
+      |> case_branches (add_local s i) cases
+      |> output s [ Create; Ref s.local_c; Load ]
+      |> output s [ Cases (BatVect.to_list !cases) ]
+      |> output s [ Destroy ]
   | Kw "case" :: rest ->
       let cases = ref BatVect.empty in
-      let rest =
-        expr_loose s rest |> case_branches s cases
-      in
-      output s rest [ Cases (BatVect.to_list !cases) ]
+      expr_loose s rest
+      |> case_branches s cases
+      |> output s [ Cases (BatVect.to_list !cases) ]
   | tokens -> expr_pre s tokens
 
 and case_branches s cases = function
@@ -320,25 +316,22 @@ and block s have_val =
       rest
   | Kw "let" :: Ident i :: Punct ":=" :: rest ->
       drop ();
-      let rest = output s (expr_loose s rest) [ Create ] in
-      output s
-        (block (add_local s i) false rest)
-        [ Destroy ]
+      expr_loose s rest |> output s [ Create ]
+      |> block (add_local s i) false
+      |> output s [ Destroy ]
   | Ident i :: Punct ":=" :: rest
   (* TODO: check semantics *)
   | Punct "^" :: Ident i :: Punct ":=" :: rest ->
       drop ();
-      append s (lookup_ref s i);
-      output s (expr_loose s rest) [ Store ]
-      |> block s false
+      output s (lookup_ref s i) rest
+      |> expr_loose s |> output s [ Store ] |> block s false
   | Kw "while" :: rest ->
       drop ();
       let test = mk_new_output s in
       let body = mk_new_output s in
       let rest' =
-        match expr_loose test rest with
-        | Punct "{" :: rest -> block body false rest
-        | _ -> raise No_parse
+        expr_loose test rest
+        |> require (Punct "{") |> block body false
       in
       append s
         [ While (unwrap_output test, unwrap_output body) ];
@@ -347,10 +340,8 @@ and block s have_val =
       drop ();
       let body = mk_new_output s in
       let rest' =
-        match expr_loose s rest with
-        | Punct "{" :: rest ->
-            block (add_local body i) false rest
-        | _ -> raise No_parse
+        expr_loose s rest |> require (Punct "{")
+        |> block (add_local body i) false
       in
       append s [ For (unwrap_output body) ];
       block s false rest'
@@ -358,8 +349,7 @@ and block s have_val =
       drop ();
       (* in scope for child and rest of block *)
       let s = add_global s (s.current ^ "." ^ i) i in
-      let rest = fn s i rest in
-      block s false rest
+      fn s i rest |> block s false
   | Kw "use" :: Ident head :: rest ->
       drop ();
       let full, name, rest =
