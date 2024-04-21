@@ -319,16 +319,15 @@ and block s have_val : parser =
       |> block s false
   | Kw "while" :: rest ->
       drop ();
-      let unwrap r = BatVect.to_list !r in
-      let test = ref BatVect.empty in
-      let body = ref BatVect.empty in
+      let test = mk_new_output s in
+      let body = mk_new_output s in
       let rest' =
-        match expr_loose { s with output = test } rest with
-        | Punct "{" :: rest ->
-            block { s with output = body } false rest
+        match expr_loose test rest with
+        | Punct "{" :: rest -> block body false rest
         | _ -> raise No_parse
       in
-      append s [ While (unwrap test, unwrap body) ];
+      append s
+        [ While (unwrap_output test, unwrap_output body) ];
       block s false rest'
   | tokens ->
       (* expr_stmt *)
