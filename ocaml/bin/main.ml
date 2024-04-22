@@ -1,7 +1,8 @@
 open Junction
 open Sexplib.Std
 
-type a = (string * Bytecode.item) list [@@deriving sexp]
+type a = (string * Bytecode.item option) list
+[@@deriving sexp]
 
 let () =
   {|
@@ -11,6 +12,10 @@ let () =
     let sum := 0
     for n := range(1, 101) { sum := sum + n }
     sum
+
+    trait Iterator[Item] {
+        fn next(^self): Option[Item]
+    }
 
   |}
   |> Parser.Lex.lex |> Parser.parse_file |> sexp_of_a

@@ -50,7 +50,8 @@ end = struct
   let identify s =
     match s with
     | "case" | "else" | "fn" | "for" | "if" | "impl" | "let"
-    | "module" | "trait" | "type" | "use" | "while" ->
+    | "module" | "self" | "trait" | "type" | "use" | "while"
+      ->
         Kw s
     | i when does_match ident i -> Ident i
     | n when does_match num n -> Num (Uint64.of_string n)
@@ -106,7 +107,7 @@ open Lex
 type binding = Global of string | Local of string * int
 
 type state = {
-  items : (string * Bytecode.item) list ref;
+  items : (string * Bytecode.item option) list ref;
   root : string;
   current : string;
   local_c : int;
@@ -177,6 +178,13 @@ let rec parse_path = function
       parse_path (head ^ "." ^ tail, tail, rest)
   | path, last, tokens -> (path, last, tokens)
 
+(*   trait := 'trait' '{' method_sig* '}'   *)
+(*   method_sig := 'fn' IDENT '(' '^'? 'self' (',' param)* ','? ')'   *)
+let rec skip_trait = function
+  | Punct "}" :: rest -> rest
+  | _ :: rest -> skip_trait rest
+  | [] -> raise No_parse
+
 (*   params := '(' ')' | '(' param (',' param)* ','? ')'   *)
 (*   param := '^'? IDENT ':' type   *)
 let params =
@@ -196,6 +204,41 @@ let params =
   | Punct "(" :: Punct ")" :: rest -> (BatVect.empty, rest)
   | Punct "(" :: rest -> params' BatVect.empty rest
   | _ -> raise No_parse
+
+let type' s t =
+  let add_item name item =
+    s.items := (s.current ^ "." ^ name, item) :: !(s.items)
+  in
+  function
+  | Punct "("
+    :: (Ident _ :: (Punct "(" | Punct "|") :: _ as rest) ->
+      add_item t None;
+
+      let rec variants = function
+        | Ident v :: (Punct "(" :: _ as rest) ->
+            let fields, rest = params rest in
+            let item =
+              Bytecode.Constructor
+                (Some v, BatVect.to_list fields)
+            in
+            add_item t (Some item);
+            variants rest
+        | Ident v :: rest ->
+            let item = Bytecode.Unit v in
+            add_item t (Some item);
+            variants rest
+        | Punct "|" :: rest -> variants rest
+        | Punct ")" :: rest -> rest
+        | _ -> raise No_parse
+      in
+      variants rest
+  | tokens ->
+      let fields, rest = params tokens in
+      let item =
+        Bytecode.Constructor (None, BatVect.to_list fields)
+      in
+      add_item t (Some item);
+      rest
 
 (*   expr := ('!' | '-')* ...   *)
 let rec expr s = function
@@ -323,6 +366,8 @@ and expr_loose s tokens =
            | 'for' IDENT ':=' expr_loose block
            | 'fn' IDENT '(' params ')' block
            | 'use' path
+           | type
+           | 'trait' IDENT '{' method_sig* '}'
            | expr_loose
 *)
 and block s have_val =
@@ -374,6 +419,13 @@ and block s have_val =
       in
       let s = add_global s full name in
       block s false rest
+  | Kw "type" :: Ident t :: rest ->
+      drop ();
+      let s = add_global s (s.current ^ "." ^ t) t in
+      type' s t rest |> block s false
+  | Kw "trait" :: Ident _ :: Punct "{" :: rest ->
+      drop ();
+      skip_trait rest |> block s false
   | tokens ->
       (* expr_stmt *)
       drop ();
@@ -401,7 +453,7 @@ and fn s name tokens =
   | Punct "{" :: rest ->
       let rest = block s' false rest in
       s.items :=
-        (name, Code (BatVect.to_list !(s'.output)))
+        (name, Some (Code (BatVect.to_list !(s'.output))))
         :: !(s.items);
       rest
   | _ -> raise No_parse
@@ -426,8 +478,11 @@ let parse_file tokens =
       |> Sexplib.Sexp.to_string |> print_endline;
       (*if not (List.length rest = 0) then
         failwith "incomplete parse";*)
-      s.items :=
-        (root, Code (BatVect.to_list !(s.output)))
-        :: !(s.items);
+      let item =
+        match BatVect.to_list !(s.output) with
+        | [ Unit ] -> None
+        | code -> Some (Bytecode.Code code)
+      in
+      s.items := (root, item) :: !(s.items);
       !(s.items)
   | _ -> raise No_parse
