@@ -11,6 +11,9 @@ module Lex : sig
   [@@deriving sexp]
 
   val lex : string -> token list
+
+  val skip_pair :
+    string -> string -> int -> token list -> token list
 end = struct
   open Sexplib.Std
 
@@ -59,17 +62,20 @@ end = struct
     | s when does_match string s -> String (unescape s)
     | _ -> failwith "invalid character or number"
 
-  let rec skip_brackets depth = function
-    | Punct "[" :: rest -> skip_brackets (depth + 1) rest
-    | Punct "]" :: rest -> skip_brackets (depth - 1) rest
-    | _ :: rest when depth > 0 -> skip_brackets depth rest
-    | tokens -> tokens
+  let rec skip_pair p_open p_close depth =
+    let sp = skip_pair p_open p_close in
+    function
+    | tokens when depth = 0 -> tokens
+    | Punct p :: r when p = p_open -> sp (depth + 1) r
+    | Punct p :: r when p = p_close -> sp (depth - 1) r
+    | _ :: rest -> sp depth rest
+    | [] -> raise No_parse
 
   let rec skip_type =
     (* types are completely ignored *)
     function
     | Ident _ :: rest -> skip_type rest
-    | Punct "[" :: rest -> skip_brackets 1 rest
+    | Punct "[" :: rest -> skip_pair "[" "]" 1 rest
     | Punct "=" :: rest -> Punct ":=" :: rest
     | tokens -> tokens
 
@@ -85,7 +91,7 @@ end = struct
     | Punct "-" :: Punct ">" :: rest -> punct "->" rest
     | Punct ":" :: rest -> combine acc (skip_type rest)
     | Punct "[" :: rest ->
-        combine acc (skip_brackets 1 rest)
+        combine acc (skip_pair "[" "]" 1 rest)
         (* TODO: duplicated logic *)
     | tok :: rest -> combine (tok :: acc) rest
 
@@ -182,13 +188,6 @@ let parse_path =
   function
   | Ident head :: rest -> parse_path' (head, head, rest)
   | _ -> raise No_parse
-
-(*   trait := 'trait' '{' method_sig* '}'   *)
-(*   method_sig := 'fn' IDENT '(' '^'? 'self' (',' param)* ','? ')'   *)
-let rec skip_trait = function
-  | Punct "}" :: rest -> rest
-  | _ :: rest -> skip_trait rest
-  | [] -> raise No_parse
 
 (*   params := '(' ')' | '(' param (',' param)* ','? ')'   *)
 (*   param := '^'? IDENT ':' type   *)
@@ -374,6 +373,7 @@ and expr_loose s tokens =
            | type
            | 'trait' IDENT '{' method_sig* '}'
            | expr_loose
+     method_sig := 'fn' IDENT '(' '^'? 'self' (',' param)* ','? ')'  
 *)
 and block s have_val =
   let drop () = if have_val then append s [ Drop ] in
@@ -428,7 +428,7 @@ and block s have_val =
       type' s t rest |> block s false
   | Kw "trait" :: Ident _ :: Punct "{" :: rest ->
       drop ();
-      skip_trait rest |> block s false
+      skip_pair "{" "}" 1 rest |> block s false
   | tokens ->
       (* expr_stmt *)
       drop ();
