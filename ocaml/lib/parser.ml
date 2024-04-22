@@ -173,10 +173,15 @@ let rec bin_prec ops s finally tokens =
       higher tokens |> tail
 
 (*   path := IDENT ('.' IDENT)*   *)
-let rec parse_path = function
-  | head, _, Punct "." :: Ident tail :: rest ->
-      parse_path (head ^ "." ^ tail, tail, rest)
-  | path, last, tokens -> (path, last, tokens)
+let parse_path =
+  let rec parse_path' = function
+    | head, _, Punct "." :: Ident tail :: rest ->
+        parse_path' (head ^ "." ^ tail, tail, rest)
+    | path, last, tokens -> (path, last, tokens)
+  in
+  function
+  | Ident head :: rest -> parse_path' (head, head, rest)
+  | _ -> raise No_parse
 
 (*   trait := 'trait' '{' method_sig* '}'   *)
 (*   method_sig := 'fn' IDENT '(' '^'? 'self' (',' param)* ','? ')'   *)
@@ -412,11 +417,9 @@ and block s have_val =
       (* in scope for child and rest of block *)
       let s = add_global s (s.current ^ "." ^ i) i in
       fn s i rest |> block s false
-  | Kw "use" :: Ident head :: rest ->
+  | Kw "use" :: rest ->
       drop ();
-      let full, name, rest =
-        parse_path (head, head, rest)
-      in
+      let full, name, rest = parse_path rest in
       let s = add_global s full name in
       block s false rest
   | Kw "type" :: Ident t :: rest ->
@@ -461,8 +464,8 @@ and fn s name tokens =
 (*   file := 'module' path stmt*   *)
 let parse_file tokens =
   match tokens with
-  | Kw "module" :: Ident head :: rest ->
-      let root, _, rest = parse_path (head, head, rest) in
+  | Kw "module" :: rest ->
+      let root, _, rest = parse_path rest in
       let s =
         {
           items = ref [];
