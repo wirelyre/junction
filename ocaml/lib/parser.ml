@@ -193,14 +193,15 @@ let parse_path =
 (*   param := '^'? IDENT ':' type   *)
 let params =
   let rec params' building = function
-    | Ident i :: Punct ")" :: rest
-    | Ident i :: Punct "," :: Punct ")" :: rest
+    | (Ident i | Kw ("self" as i))
+      :: (Punct ")" :: rest | Punct "," :: Punct ")" :: rest)
     (* TODO: check semantics *)
-    | Punct "^" :: Ident i :: Punct ")" :: rest
-    | Punct "^" :: Ident i :: Punct "," :: Punct ")" :: rest
+    | Punct "^"
+      :: (Ident i | Kw ("self" as i))
+      :: (Punct ")" :: rest | Punct "," :: Punct ")" :: rest)
       ->
         (BatVect.append i building, rest)
-    | Ident i :: Punct "," :: rest ->
+    | (Ident i | Kw ("self" as i)) :: Punct "," :: rest ->
         params' (BatVect.append i building) rest
     | _ -> raise No_parse
   in
@@ -258,11 +259,12 @@ and expr_core s = function
   | Num n :: rest ->
       append s [ Literal n ];
       expr_post s rest
-  | Ident i :: Punct "<-" :: Ident m :: rest ->
+  | Ident i :: Punct "<-" :: Ident m :: rest
+  | Kw ("self" as i) :: Punct "<-" :: Ident m :: rest ->
       append s (lookup_ref s i);
       append s [ Method m ];
       expr_post s rest
-  | Ident i :: rest ->
+  | (Ident i | Kw ("self" as i)) :: rest ->
       append s (lookup s i);
       expr_post s rest
   | Punct "{" :: rest -> block s false rest |> expr_post s
