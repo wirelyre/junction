@@ -251,7 +251,9 @@ let rec expr s = function
       expr s rest |> output s [ Method "not"; Call 1 ]
   | Punct "-" :: rest ->
       expr s rest |> output s [ Method "neg"; Call 1 ]
-  | Punct "^" :: Ident _i :: _rest -> failwith "todo"
+  | Punct "^" :: (Ident i | Kw ("self" as i)) :: rest ->
+      append s (lookup_ref s i);
+      rest (* stop parsing expression; only valid as arg *)
   | tokens -> expr_core s tokens
 
 (*   ... (NUM | IDENT | IDENT '<-' IDENT call) ...   *)
@@ -390,7 +392,8 @@ and block s have_val =
       |> output s [ Destroy ]
   | Ident i :: Punct ":=" :: rest
   (* TODO: check semantics *)
-  | Punct "^" :: Ident i :: Punct ":=" :: rest ->
+  | Punct "^" :: Ident i :: Punct ":=" :: rest
+  | Punct "^" :: Kw ("self" as i) :: Punct ":=" :: rest ->
       drop ();
       output s (lookup_ref s i) rest
       |> expr_loose s |> output s [ Store ] |> block s false
@@ -431,6 +434,18 @@ and block s have_val =
   | Kw "trait" :: Ident _ :: Punct "{" :: rest ->
       drop ();
       skip_pair "{" "}" 1 rest |> block s false
+  | Kw "impl" :: Ident ty :: rest ->
+      drop ();
+      let rest =
+        match rest with
+        | Punct "(" :: rest -> skip_pair "(" ")" 1 rest
+        | tokens -> tokens
+      in
+      rest |> require (Punct "{")
+      |> block (* new scope *)
+           { s with current = s.current ^ "." ^ ty }
+           false
+      |> block s true (* parsed as block; returns Unit *)
   | tokens ->
       (* expr_stmt *)
       drop ();

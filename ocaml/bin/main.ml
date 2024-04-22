@@ -6,15 +6,20 @@ type a = (string * Bytecode.item option) list
 
 let () =
   {|
-    module main
+    module std
 
-    use std.range
-    let sum := 0
-    for n := range(1, 101) { sum := sum + n }
-    sum
+    use core.Option.None
+    use core.Option.Some
 
-    trait Iterator[Item] {
-        fn next(^self): Option[Item]
+    type range(start: Nat, end: Nat)
+
+    impl range (core.Iterator[Nat]) {
+        fn next(^self) {
+            if self.start < self.end {
+                ^self := range(self.start + 1, self.end)
+                Some(self.start - 1)
+            } else { None }
+        }
     }
 
   |}
