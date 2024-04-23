@@ -442,10 +442,14 @@ and block s have_val =
         | tokens -> tokens
       in
       rest |> require (Punct "{")
-      |> block (* new scope *)
-           { s with current = s.current ^ "." ^ ty }
+      |> block (* new scope, no output *)
+           {
+             s with
+             current = s.current ^ "." ^ ty;
+             output = ref BatVect.empty;
+           }
            false
-      |> block s true (* parsed as block; returns Unit *)
+      |> block s false
   | tokens ->
       (* expr_stmt *)
       drop ();
@@ -479,8 +483,8 @@ and fn s name tokens =
   | _ -> raise No_parse
 
 (*   file := 'module' path stmt*   *)
-let parse_file tokens =
-  match tokens with
+let parse_file src =
+  match lex src with
   | Kw "module" :: rest ->
       let root, _, rest = parse_path rest in
       let s =
@@ -494,10 +498,8 @@ let parse_file tokens =
         }
       in
       let rest = block s false rest in
-      Sexplib.Std.sexp_of_list sexp_of_token rest
-      |> Sexplib.Sexp.to_string |> print_endline;
-      (*if not (List.length rest = 0) then
-        failwith "incomplete parse";*)
+      if not (List.length rest = 0) then
+        failwith "incomplete parse";
       let item =
         match BatVect.to_list !(s.output) with
         | [ Unit ] -> None

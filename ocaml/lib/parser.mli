@@ -10,4 +10,4 @@ module Lex : sig
   val lex : string -> token list
 end
 
-val parse_file : Lex.token list -> (string * Bytecode.item option) list
+val parse_file : string -> (string * Bytecode.item option) list
