@@ -106,7 +106,7 @@
      (Ref 0) Load (Method eq) (Literal 0) (Call 2)
      (Cases
        ((True  ((Global core.Bool.False)))
-        (False ((Global is_odd) (Ref 0) Load (Method sub) (Literal 1) (Call 2) (Call 1)))))))))))
+        (False ((Global is_even) (Ref 0) Load (Method sub) (Literal 1) (Call 2) (Call 1)))))))))))
 
 ; min(6, 7)
 ((expect (Nat 6)) (namespace
