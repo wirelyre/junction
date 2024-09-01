@@ -25,7 +25,7 @@ let get_method ns name receiver =
 let rec invoke ns f args =
   let path = Value.unwrap_mod f in
   match Map.find path ns with
-  | Module | Value _ -> raise Value.WrongType
+  | Module | Value _ -> raise WrongType
   | Native f -> f (BatVect.to_list args)
   | Code insts ->
       eval_block insts ns (BatVect.map Value.var_of_obj args)
@@ -48,7 +48,7 @@ and eval_block insts ns vars =
 
 and eval ns { stack; vars } = function
   | Literal i -> push stack (Val (Nat i))
-  | Unit -> push stack (Val Value.unit_)
+  | Unit -> push stack (Val Builtins.unit_)
   | Drop -> pop stack |> ignore
   | Field f -> push stack (Value.field ns f (pop stack))
   | Create ->
@@ -76,7 +76,9 @@ and eval ns { stack; vars } = function
       let branch = List.assoc (Value.tag value) c in
       push stack (Val (eval_block branch ns !vars))
   | While (test, body) ->
-      while Value.bool_of_t (eval_block test ns !vars) do
+      while
+        Builtins.Bool.of_val (eval_block test ns !vars)
+      do
         ignore (eval_block body ns !vars)
       done
   | For body ->
@@ -84,7 +86,7 @@ and eval ns { stack; vars } = function
       let next = get_method ns "next" iter in
       Seq.of_dispenser (fun () ->
           invoke ns next (BatVect.singleton iter)
-          |> Value.option_of_t)
+          |> Builtins.Option.of_val)
       |> Seq.iter (fun item ->
              push vars (ref item);
              eval_block body ns !vars |> ignore;

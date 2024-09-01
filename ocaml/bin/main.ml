@@ -1,10 +1,15 @@
 open Junction
+open Junction.Types
 
 type test = {
   expect : Types.value;
   namespace : Types.namespace;
 }
 [@@deriving sexp]
+
+let builtins =
+  BatList.fold_left Namespace.merge Namespace.empty
+    Junction.Builtins.[ Bool.ns; Nat.ns ]
 
 let () =
   Sexplib.(
@@ -13,18 +18,14 @@ let () =
       (fun sexp ->
         let test = test_of_sexp sexp in
 
-        let ns =
-          Types.Namespace.merge Value.builtins test.namespace
-        in
+        let ns = Namespace.merge builtins test.namespace in
         let main =
           Junction.Bytecode.invoke ns
-            (Types.Namespace.get ns "main")
+            (Namespace.get ns "main")
         in
 
-        let expect = Types.sexp_of_value test.expect in
-        let result =
-          Types.sexp_of_value (main BatVect.empty)
-        in
+        let expect = sexp_of_value test.expect in
+        let result = sexp_of_value (main BatVect.empty) in
 
         if expect = result then
           print_endline ("✅ " ^ Sexp.to_string result)

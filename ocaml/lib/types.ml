@@ -1,5 +1,7 @@
 open Sexplib.Std
 
+exception WrongType
+
 type value =
   (* structure / tagged union *)
   | Data of {
@@ -51,6 +53,8 @@ type item =
 type namespace = (string, item) Map.t [@@deriving sexp]
 
 module Namespace = struct
+  let empty = Map.empty
+
   let get ns path =
     match Map.find path ns with
     | Value v -> Val v
@@ -64,4 +68,14 @@ module Namespace = struct
             raise (Failure ("collision with value: " ^ path))
         | Some Module, i | i, Some Module -> i
         | _, _ -> raise (Failure ("duplicate item: " ^ path)))
+
+  let of_item p item =
+    let join a b = a ^ "." ^ b in
+    let full = List.fold_left join "" p |> BatString.lchop in
+    BatEnum.(
+      append
+        (BatList.enum p |> scan join
+        |> map (fun path -> (path, Module)))
+        (singleton (full, item)))
+    |> Map.of_enum
 end
