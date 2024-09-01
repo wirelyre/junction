@@ -1,22 +1,23 @@
+open Batteries
 open Types
 
 type state = {
-  stack : obj BatVect.t ref;
-  vars : value ref BatVect.t ref;
+  stack : obj Vect.t ref;
+  vars : value ref Vect.t ref;
 }
 
-let push vec item = vec := BatVect.append item !vec
+let push vec item = vec := Vect.append item !vec
 
 let pop vec =
-  let item, rest = BatVect.pop !vec in
+  let item, rest = Vect.pop !vec in
   vec := rest;
   item
 
 let split_end vec n =
-  let len = BatVect.length vec in
-  ( BatVect.sub vec 0 (len - n - 1),
-    BatVect.get vec (len - n - 1),
-    BatVect.sub vec (len - n) n )
+  let len = Vect.length vec in
+  ( Vect.sub vec 0 (len - n - 1),
+    Vect.get vec (len - n - 1),
+    Vect.sub vec (len - n) n )
 
 let unwrap_val = function Val v -> v | _ -> raise WrongType
 let unwrap_ref = function Ref r -> r | _ -> raise WrongType
@@ -48,23 +49,21 @@ let rec invoke ns f args =
   let path = unwrap_mod f in
   match Map.find path ns with
   | Module | Value _ -> raise WrongType
-  | Native f -> f (BatVect.to_list args)
+  | Native f -> f (Vect.to_list args)
   | Code insts ->
-      eval_block insts ns (BatVect.map var_of_obj args)
+      eval_block insts ns (Vect.map var_of_obj args)
   | Constructor (type_, tag, fields) ->
-      let args = BatVect.(map unwrap_val args |> to_list) in
+      let args = Vect.(map unwrap_val args |> to_list) in
       let fields = List.combine fields args in
       Data { type_; tag; fields }
 
 and eval_block insts ns vars =
-  let state =
-    { stack = ref BatVect.empty; vars = ref vars }
-  in
+  let state = { stack = ref Vect.empty; vars = ref vars } in
   List.iter (eval ns state) insts;
 
-  assert (BatVect.length !(state.stack) == 1);
-  assert (BatVect.(length !(state.vars) == length vars));
-  BatVect.get !(state.stack) 0 |> unwrap_val
+  assert (Vect.length !(state.stack) == 1);
+  assert (Vect.(length !(state.vars) == length vars));
+  Vect.get !(state.stack) 0 |> unwrap_val
 
 and eval ns { stack; vars } = function
   | Literal i -> push stack (Val (Nat i))
@@ -73,7 +72,7 @@ and eval ns { stack; vars } = function
   | Field f -> push stack (field ns f (pop stack))
   | Create -> pop stack |> unwrap_val |> ref |> push vars
   | Destroy -> pop vars |> ignore
-  | Reference i -> push stack (Ref (BatVect.get !vars i))
+  | Reference i -> push stack (Ref (Vect.get !vars i))
   | Load -> Val !(pop stack |> unwrap_ref) |> push stack
   | Store ->
       let value = pop stack in
@@ -103,7 +102,7 @@ and eval ns { stack; vars } = function
       let iter = Ref (pop stack |> var_of_obj) in
       let next = get_method ns "next" iter in
       Seq.of_dispenser (fun () ->
-          invoke ns next (BatVect.singleton iter)
+          invoke ns next (Vect.singleton iter)
           |> Builtins.Option.of_val)
       |> Seq.iter (fun item ->
              push vars (ref item);

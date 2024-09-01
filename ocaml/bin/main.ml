@@ -1,10 +1,6 @@
-open Junction
 open Junction.Types
 
-type test = {
-  expect : Types.value;
-  namespace : Types.namespace;
-}
+type test = { expect : value; namespace : namespace }
 [@@deriving sexp]
 
 let builtins =
