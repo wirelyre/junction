@@ -1,25 +1,20 @@
 open Sexplib.Std
 
 type value =
+  (* structure / tagged union *)
   | Data of {
       type_ : string;
       tag : string option; [@sexp.option]
       fields : (string * value) list; [@sexp.list]
     }
   | Nat of Uint64.t
-  | Module of {
-      path : string;
-      f : (ns -> obj list -> value) option;
-    }
 [@@deriving sexp]
 
 (* Things found on the stack. *)
-and obj =
+type obj =
   | Val of value (* value *)
   | Ref of value ref (* reference to variable *)
-
-(* Namespace *)
-and ns = (string, value) Hashtbl.t
+  | Mod of string (* module/function in global namespace *)
 
 type inst =
   (* Basic operations *)
@@ -30,7 +25,7 @@ type inst =
   (* Variables and references *)
   | Create
   | Destroy
-  | Ref of int
+  | Reference of int
   | Load
   | Store
   (* Modules *)
@@ -43,11 +38,19 @@ type inst =
   | For of inst list
 [@@deriving sexp]
 
-let insts_of_sexp = Sexplib.Std.list_of_sexp inst_of_sexp
-let sexp_of_insts = Sexplib.Std.sexp_of_list sexp_of_inst
-
+(* item in the global namespace *)
 type item =
-  | Code of inst list [@sexp.list]
-  | Unit of string
-  | Constructor of string option * string list
+  | Module (* module with no code *)
+  | Code of inst list (* user function with bytecode *)
+      [@sexp.list]
+  | Constructor of string * string option * string list
+  | Native of (obj list -> value) (* native function *)
+  | Value of value (* unit, like `core.Bool.True` *)
 [@@deriving sexp]
+
+type namespace = (string, item) Hashtbl.t [@@deriving sexp]
+
+let ns_get ns path =
+  match Hashtbl.find ns path with
+  | Value v -> Val v
+  | Module | Code _ | Constructor _ | Native _ -> Mod path

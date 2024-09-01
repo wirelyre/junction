@@ -1,4 +1,3 @@
-open Sexplib.Std
 open Types
 
 exception WrongType
@@ -14,43 +13,28 @@ let bool_of_t = function
       tag = "True"
   | _ -> raise WrongType
 
-let fun_of_t = function
-  | Module { f = Some f; _ } -> f
+let unwrap_val = function Val v -> v | _ -> raise WrongType
+let unwrap_ref = function Ref r -> r | _ -> raise WrongType
+let unwrap_mod = function Mod p -> p | _ -> raise WrongType
+
+let var_of_obj = function
+  | Val v -> ref v
+  | Ref r -> r
   | _ -> raise WrongType
 
-let type_ =
-  let type_of_t = function
-    | Data d -> d.type_
-    | Nat _ -> "core.Nat"
-    | Module _ -> raise WrongType
-  in
-  function Val v -> type_of_t v | Ref r -> type_of_t !r
+let type' = function
+  | Data d -> Mod d.type_
+  | Nat _ -> Mod "core.Nat"
 
 let tag = function
-  | Data { tag = Some t; _ } -> t
+  | Val (Data { tag = Some t; _ }) -> t
   | _ -> raise WrongType
 
 let field ns f = function
-  | Val (Data { fields; _ }) -> List.assoc f fields
-  | Val (Module { path; _ }) ->
-      Hashtbl.find ns (path ^ "." ^ f)
-  | _ -> raise WrongType
-
-let ref_of_obj = function
-  | Val _ -> raise WrongType
-  | Ref r -> r
-
-let val_of_obj = function
-  | Val v -> v
-  | Ref _ -> raise WrongType
-
-let named_var_of_obj = function
-  | Val v -> ref v
-  | Ref r -> r
-
-let fun_of_obj = function
-  | Val (Module { f = Some f; _ }) -> f
-  | _ -> raise WrongType
+  | Val (Data { fields; _ }) -> Val (List.assoc f fields)
+  | Val (Nat _) -> raise WrongType (* Nat has no fields *)
+  | Ref _ -> raise WrongType (* cannot call Field on a Ref *)
+  | Mod path -> ns_get ns (path ^ "." ^ f)
 
 let option_of_t = function
   | Data { type_ = "core.Option"; fields; _ } ->
@@ -59,23 +43,22 @@ let option_of_t = function
 
 let methods mod_name =
   let path name = mod_name ^ "." ^ name in
-  List.map (fun (name, f) ->
-      (path name, Module { path = path name; f = Some f }))
+  List.map (fun (name, f) -> (path name, Native f))
 
 module Bool = struct
-  let lift1 f _ns = function
+  let lift1 f = function
     | [ Val b ] -> t_of_bool (f (bool_of_t b))
     | _ -> raise WrongType
 
-  let lift2 f _ns = function
+  let lift2 f = function
     | [ Val lhs; Val rhs ] ->
         t_of_bool (f (bool_of_t lhs) (bool_of_t rhs))
     | _ -> raise WrongType
 
   let ns =
     [
-      ("core.Bool.False", t_of_bool false);
-      ("core.Bool.True", t_of_bool true);
+      ("core.Bool.False", Value (t_of_bool false));
+      ("core.Bool.True", Value (t_of_bool true));
     ]
     @ methods "core.Bool"
         [
@@ -88,11 +71,11 @@ end
 module Nat = struct
   open Uint64
 
-  let lift2 f _ns = function
+  let lift2 f = function
     | [ Val (Nat lhs); Val (Nat rhs) ] -> Nat (f lhs rhs)
     | _ -> raise WrongType
 
-  let comp f _ns = function
+  let comp f = function
     | [ Val (Nat lhs); Val (Nat rhs) ] ->
         t_of_bool (f (compare lhs rhs))
     | _ -> raise WrongType
@@ -119,8 +102,6 @@ module Nat = struct
 end
 
 let builtins =
-  let no_code path = (path, Module { path; f = None }) in
-  [
-    no_code "core"; no_code "core.Bool"; no_code "core.Nat";
-  ]
+  let no_code path = (path, Module) in
+  [ no_code "core"; no_code "core.Bool"; no_code "core.Nat" ]
   @ Nat.ns @ Bool.ns
