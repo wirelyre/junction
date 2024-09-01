@@ -48,9 +48,20 @@ type item =
   | Value of value (* unit, like `core.Bool.True` *)
 [@@deriving sexp]
 
-type namespace = (string, item) Hashtbl.t [@@deriving sexp]
+type namespace = (string, item) Map.t [@@deriving sexp]
 
-let ns_get ns path =
-  match Hashtbl.find ns path with
-  | Value v -> Val v
-  | Module | Code _ | Constructor _ | Native _ -> Mod path
+module Namespace = struct
+  let get ns path =
+    match Map.find path ns with
+    | Value v -> Val v
+    | Module | Code _ | Constructor _ | Native _ -> Mod path
+
+  let merge =
+    Map.merge (fun path item1 item2 ->
+        match (item1, item2) with
+        | None, i | i, None -> i
+        | Some (Value _), _ | _, Some (Value _) ->
+            raise (Failure ("collision with value: " ^ path))
+        | Some Module, i | i, Some Module -> i
+        | _, _ -> raise (Failure ("duplicate item: " ^ path)))
+end

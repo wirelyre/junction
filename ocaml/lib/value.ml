@@ -34,7 +34,7 @@ let field ns f = function
   | Val (Data { fields; _ }) -> Val (List.assoc f fields)
   | Val (Nat _) -> raise WrongType (* Nat has no fields *)
   | Ref _ -> raise WrongType (* cannot call Field on a Ref *)
-  | Mod path -> ns_get ns (path ^ "." ^ f)
+  | Mod path -> Namespace.get ns (path ^ "." ^ f)
 
 let option_of_t = function
   | Data { type_ = "core.Option"; fields; _ } ->
@@ -105,3 +105,4 @@ let builtins =
   let no_code path = (path, Module) in
   [ no_code "core"; no_code "core.Bool"; no_code "core.Nat" ]
   @ Nat.ns @ Bool.ns
+  |> List.to_seq |> Map.of_seq

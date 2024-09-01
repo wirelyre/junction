@@ -24,7 +24,7 @@ let get_method ns name receiver =
 
 let rec invoke ns f args =
   let path = Value.unwrap_mod f in
-  match Hashtbl.find ns path with
+  match Map.find path ns with
   | Module | Value _ -> raise Value.WrongType
   | Native f -> f (BatVect.to_list args)
   | Code insts ->
@@ -65,7 +65,7 @@ and eval ns { stack; vars } = function
       let receiver = pop stack in
       push stack (get_method ns m receiver);
       push stack receiver
-  | Global g -> push stack (ns_get ns g)
+  | Global g -> push stack (Namespace.get ns g)
   | Call argc ->
       let stack', f, argv = split_end !stack argc in
       let result = invoke ns f argv in

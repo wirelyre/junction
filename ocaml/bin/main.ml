@@ -1,9 +1,8 @@
 open Junction
-open Sexplib.Std
 
 type test = {
   expect : Types.value;
-  namespace : (string * Types.item) list;
+  namespace : Types.namespace;
 }
 [@@deriving sexp]
 
@@ -15,11 +14,11 @@ let () =
         let test = test_of_sexp sexp in
 
         let ns =
-          BatHashtbl.of_list (Value.builtins @ test.namespace)
+          Types.Namespace.merge Value.builtins test.namespace
         in
         let main =
           Junction.Bytecode.invoke ns
-            (Types.ns_get ns "main")
+            (Types.Namespace.get ns "main")
         in
 
         let expect = Types.sexp_of_value test.expect in
