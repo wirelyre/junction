@@ -1,27 +1,5 @@
 open Sexplib.Std
-
-type t =
-  | Data of {
-      type_ : string;
-      tag : string option; [@sexp.option]
-      fields : (string * t) list; [@sexp.list]
-    }
-  | Nat of Uint64.t
-  | Module of {
-      path : string;
-      f : (ns -> obj list -> t) option;
-    }
-[@@deriving sexp]
-
-(* A value or reference.
- *
- * Temporary stack items are objects.
- * Function take objects as arguments, and return values.
- *)
-and obj = Val of t | Ref of t ref
-
-(* Namespace *)
-and ns = (string, t) Hashtbl.t
+open Types
 
 exception WrongType
 

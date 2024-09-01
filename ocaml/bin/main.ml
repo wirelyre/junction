@@ -2,8 +2,8 @@ open Junction
 open Sexplib.Std
 
 type test = {
-  expect : Value.t;
-  namespace : (string * Bytecode.item option) list;
+  expect : Types.value;
+  namespace : (string * Types.item option) list;
 }
 [@@deriving sexp]
 
@@ -23,8 +23,8 @@ let () =
           Value.fun_of_t (Hashtbl.find ns "main")
         in
 
-        let expect = Value.sexp_of_t test.expect in
-        let result = Value.sexp_of_t (main ns []) in
+        let expect = Types.sexp_of_value test.expect in
+        let result = Types.sexp_of_value (main ns []) in
 
         if expect = result then
           print_endline ("✅ " ^ Sexp.to_string result)
