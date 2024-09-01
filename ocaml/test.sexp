@@ -137,12 +137,12 @@
    (test.MyBool.False (Value (Data (type_ test.MyBool) (tag False))))
    (test.MyBool.True  (Value (Data (type_ test.MyBool) (tag True)))))))
 
-((expect (Data (type_ core.Option) (tag Some) (fields ((inner (Nat 1))))))
+((expect (Data (type_ test.MyOption) (tag Some) (fields ((inner (Nat 1))))))
  (namespace
-  ((main (Code (Global core.Option.Some) (Literal 1) (Call 1)))
-   (core.Option Module)
-   (core.Option.None (Value (Data (type_ core.Option) (tag None))))
-   (core.Option.Some (Constructor core.Option (Some) (inner))))))
+  ((main (Code (Global test.MyOption.Some) (Literal 1) (Call 1)))
+   (test.MyOption Module)
+   (test.MyOption.None (Value (Data (type_ test.MyOption) (tag None))))
+   (test.MyOption.Some (Constructor test.MyOption (Some) (inner))))))
 
 ; 1 + 2 + ... + 100
 ((expect (Nat 5050)) (namespace
@@ -157,11 +157,6 @@
        Unit))
      (Reference 0) Load
      Destroy))
-
-   ; type Option[T](None | Some(inner: T))
-   (core.Option Module)
-   (core.Option.None (Value (Data (type_ core.Option) (tag None))))
-   (core.Option.Some (Constructor core.Option (Some) (inner)))
 
    ; type range(start: Nat, end: Nat)
    (std.range (Constructor std.range () (start end)))

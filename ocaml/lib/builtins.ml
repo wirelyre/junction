@@ -80,4 +80,14 @@ module Option = struct
     | Data { type_ = "core.Option"; fields; _ } ->
         List.assoc_opt "inner" fields
     | _ -> raise WrongType
+
+  let ns =
+    scoped [ "core"; "Option" ]
+      [
+        ( "None",
+          Value (mk_data "core.Option" (Some "None") []) );
+        ( "Some",
+          Constructor
+            ("core.Option", Some "Some", [ "inner" ]) );
+      ]
 end

@@ -5,7 +5,7 @@ type test = { expect : value; namespace : namespace }
 
 let builtins =
   BatList.fold_left Namespace.merge Namespace.empty
-    Junction.Builtins.[ Bool.ns; Nat.ns ]
+    Junction.Builtins.[ Bool.ns; Nat.ns; Option.ns ]
 
 let () =
   Sexplib.(
