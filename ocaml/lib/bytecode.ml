@@ -18,21 +18,41 @@ let split_end vec n =
     BatVect.get vec (len - n - 1),
     BatVect.sub vec (len - n) n )
 
+let unwrap_val = function Val v -> v | _ -> raise WrongType
+let unwrap_ref = function Ref r -> r | _ -> raise WrongType
+let unwrap_mod = function Mod p -> p | _ -> raise WrongType
+
+let var_of_obj = function
+  | Val v -> ref v
+  | Ref r -> r
+  | _ -> raise WrongType
+
+let type' = function
+  | Data d -> Mod d.type_
+  | Nat _ -> Mod "core.Nat"
+
+let tag = function
+  | Val (Data { tag = Some t; _ }) -> t
+  | _ -> raise WrongType
+
+let field ns f = function
+  | Val (Data { fields; _ }) -> Val (List.assoc f fields)
+  | Val (Nat _) -> raise WrongType (* Nat has no fields *)
+  | Ref _ -> raise WrongType (* cannot call Field on a Ref *)
+  | Mod path -> Namespace.get ns (path ^ "." ^ f)
+
 let get_method ns name receiver =
-  Value.field ns name
-    (Value.type' !(Value.var_of_obj receiver))
+  field ns name (type' !(var_of_obj receiver))
 
 let rec invoke ns f args =
-  let path = Value.unwrap_mod f in
+  let path = unwrap_mod f in
   match Map.find path ns with
   | Module | Value _ -> raise WrongType
   | Native f -> f (BatVect.to_list args)
   | Code insts ->
-      eval_block insts ns (BatVect.map Value.var_of_obj args)
+      eval_block insts ns (BatVect.map var_of_obj args)
   | Constructor (type_, tag, fields) ->
-      let args =
-        BatVect.(map Value.unwrap_val args |> to_list)
-      in
+      let args = BatVect.(map unwrap_val args |> to_list) in
       let fields = List.combine fields args in
       Data { type_; tag; fields }
 
@@ -44,23 +64,21 @@ and eval_block insts ns vars =
 
   assert (BatVect.length !(state.stack) == 1);
   assert (BatVect.(length !(state.vars) == length vars));
-  BatVect.get !(state.stack) 0 |> Value.unwrap_val
+  BatVect.get !(state.stack) 0 |> unwrap_val
 
 and eval ns { stack; vars } = function
   | Literal i -> push stack (Val (Nat i))
   | Unit -> push stack (Val Builtins.unit_)
   | Drop -> pop stack |> ignore
-  | Field f -> push stack (Value.field ns f (pop stack))
-  | Create ->
-      pop stack |> Value.unwrap_val |> ref |> push vars
+  | Field f -> push stack (field ns f (pop stack))
+  | Create -> pop stack |> unwrap_val |> ref |> push vars
   | Destroy -> pop vars |> ignore
   | Reference i -> push stack (Ref (BatVect.get !vars i))
-  | Load ->
-      Val !(pop stack |> Value.unwrap_ref) |> push stack
+  | Load -> Val !(pop stack |> unwrap_ref) |> push stack
   | Store ->
       let value = pop stack in
       let ref = pop stack in
-      Value.unwrap_ref ref := Value.unwrap_val value
+      unwrap_ref ref := unwrap_val value
   | Method m ->
       let receiver = pop stack in
       push stack (get_method ns m receiver);
@@ -73,7 +91,7 @@ and eval ns { stack; vars } = function
       push stack (Val result)
   | Cases c ->
       let value = pop stack in
-      let branch = List.assoc (Value.tag value) c in
+      let branch = List.assoc (tag value) c in
       push stack (Val (eval_block branch ns !vars))
   | While (test, body) ->
       while
@@ -82,7 +100,7 @@ and eval ns { stack; vars } = function
         ignore (eval_block body ns !vars)
       done
   | For body ->
-      let iter = Ref (pop stack |> Value.var_of_obj) in
+      let iter = Ref (pop stack |> var_of_obj) in
       let next = get_method ns "next" iter in
       Seq.of_dispenser (fun () ->
           invoke ns next (BatVect.singleton iter)
