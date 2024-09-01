@@ -184,3 +184,23 @@
            (Reference 0) Load (Field start) (Method sub) (Literal 1) (Call 2)
          (Call 1)))
        (False ((Global core.Option.None))))))))))
+
+((expect (Data (type_ core.Option) (tag Some) (fields ((inner (Nat 2))))))
+ (namespace
+   ((main (Code
+      ; Some(1)->then(Some(2))
+      (Global core.Option.Some) (Literal 1) (Call 1) (Method then)
+      (Global core.Option.Some) (Literal 2) (Call 1) (Call 2)))
+    (core.Option.then (Code
+      ; impl Option[T] {
+      ;   fn then[S](self, other: Option[S]): Option[S] {
+      ;     case self {
+      ;       None -> None
+      ;       Some -> other
+      ;     }
+      ;   }
+      ; }
+      (Reference 0) Load
+      (Cases
+        ((None ((Global core.Option.None)))
+         (Some ((Reference 1) Load)))))))))
